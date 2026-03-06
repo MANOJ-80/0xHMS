@@ -26,6 +26,7 @@ A full-stack hospital outpatient management application with real-time queue tra
 16. [Error Handling](#error-handling)
 17. [Known Limitations & Future Work](#known-limitations--future-work)
 18. [Vercel Deployment](#vercel-deployment)
+19. [Live Demo & Testing Credentials](#live-demo--testing-credentials)
 
 ---
 
@@ -1212,3 +1213,66 @@ npm run seed --workspace server
   ]
 }
 ```
+
+---
+
+## Live Demo & Testing Credentials
+
+### Live URLs
+
+| Service | URL |
+|---------|-----|
+| Frontend | [https://hms-client-theta.vercel.app](https://hms-client-theta.vercel.app) |
+| Backend API | [https://hms-server-iota.vercel.app](https://hms-server-iota.vercel.app) |
+| Health Check | [https://hms-server-iota.vercel.app/api/v1/health](https://hms-server-iota.vercel.app/api/v1/health) |
+
+### Test Credentials
+
+All accounts below are pre-seeded. Use the frontend login page to sign in.
+
+#### Admin
+
+| Field | Value |
+|-------|-------|
+| Email | `admin@spcms.local` |
+| Password | `Admin@123` |
+
+Full system access: manage departments, doctors, patients, view audit logs, reports, and system configuration.
+
+#### Receptionist
+
+| Field | Value |
+|-------|-------|
+| Email | `reception@spcms.local` |
+| Password | `Reception@123` |
+
+Can register patients, book appointments, perform check-ins, and monitor the queue board.
+
+#### Doctors
+
+| Name | Email | Password | Specialization | Room |
+|------|-------|----------|----------------|------|
+| Dr. Arun Rao | `arun.rao@spcms.local` | `Doctor@123` | General Medicine | A-101 |
+| Dr. Sara Iqbal | `sara.iqbal@spcms.local` | `Doctor@123` | Cardiology | B-204 |
+| Dr. Njeri Singh | `njeri.singh@spcms.local` | `Doctor@123` | Dermatology | C-112 |
+
+Can view their queue, call patients, start/complete consultations, add notes, and transfer patients.
+
+#### Patients
+
+| Name | Email | Password |
+|------|-------|----------|
+| John Doe | `john.doe@example.com` | `Patient@123` |
+| Jane Smith | `jane.smith@example.com` | `Patient@123` |
+| Alice Johnson | `alice.j@example.com` | `Patient@123` |
+
+Can view their appointments, check queue position, and see consultation history.
+
+### Quick Test Workflow
+
+1. **Login as Receptionist** (`reception@spcms.local` / `Reception@123`)
+2. Go to **Check In** page and check in a patient (e.g. John Doe) to the OPD department
+3. **Login as Doctor** (`arun.rao@spcms.local` / `Doctor@123`) in another browser/tab
+4. See the patient appear in the doctor's queue, click **Call**, then **Start Consultation**
+5. Add notes and **Complete** the consultation
+6. **Login as Patient** (`john.doe@example.com` / `Patient@123`) to view the consultation record
