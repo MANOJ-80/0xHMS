@@ -1,0 +1,196 @@
+import { QueueToken } from '../models/QueueToken.js'
+import { createAuditLog } from '../services/auditService.js'
+import { assignQueueTokenToDoctor, findBestDoctor } from '../services/assignmentService.js'
+import { recalculateDoctorQueue } from '../services/queueService.js'
+import { emitQueueUpdate } from '../services/socketService.js'
+import { ApiError } from '../utils/ApiError.js'
+import { asyncHandler } from '../utils/asyncHandler.js'
+import { sendSuccess } from '../utils/response.js'
+
+export const listQueueTokens = asyncHandler(async (req, res) => {
+  const { departmentId, doctorId, queueStatus, patientId } = req.query
+  const query = { isActive: true }
+
+  if (departmentId) query.departmentId = departmentId
+  if (doctorId) query.assignedDoctorId = doctorId
+  if (queueStatus) query.queueStatus = queueStatus
+  if (patientId) query.patientId = patientId
+
+  const queueTokens = await QueueToken.find(query)
+    .populate('patientId', 'fullName patientCode phone')
+    .populate('assignedDoctorId', 'fullName consultationRoom')
+    .sort({ priorityLevel: -1, createdAt: 1 })
+    .limit(200)
+
+  return sendSuccess(res, 'Queue tokens fetched successfully', { queueTokens })
+})
+
+export const assignQueueToken = asyncHandler(async (req, res) => {
+  const { assignedDoctorId, reason } = req.body
+
+  if (!assignedDoctorId) {
+    throw new ApiError(400, 'assignedDoctorId is required')
+  }
+
+  const queueToken = await assignQueueTokenToDoctor({
+    queueTokenId: req.params.id,
+    doctorId: assignedDoctorId,
+    assignedByType: req.user?.role || 'system',
+    assignedBy: req.user?.sub || null,
+    decisionReason: reason || 'manual assignment',
+  })
+
+  if (!queueToken) {
+    throw new ApiError(404, 'Queue token not found')
+  }
+
+  await createAuditLog({
+    req,
+    actorId: req.user?.sub || null,
+    actorRole: req.user?.role || 'system',
+    action: 'queue.assigned',
+    entityType: 'QueueToken',
+    entityId: queueToken._id,
+    metadata: { assignedDoctorId },
+  })
+
+  emitQueueUpdate(req, {
+    departmentId: queueToken.departmentId,
+    doctorId: queueToken.assignedDoctorId,
+    patientId: queueToken.patientId,
+  })
+
+  return sendSuccess(res, 'Queue token assigned successfully', { queueToken })
+})
+
+export const autoAssignQueueToken = asyncHandler(async (req, res) => {
+  const { queueTokenId } = req.body
+
+  if (!queueTokenId) {
+    throw new ApiError(400, 'queueTokenId is required')
+  }
+
+  const queueToken = await QueueToken.findById(queueTokenId)
+  if (!queueToken) {
+    throw new ApiError(404, 'Queue token not found')
+  }
+
+  const bestDoctor = await findBestDoctor({
+    departmentId: queueToken.departmentId,
+    specialization: queueToken.specialization,
+  })
+
+  if (!bestDoctor?.doctor) {
+    throw new ApiError(404, 'No eligible doctor found for auto assignment')
+  }
+
+  const updated = await assignQueueTokenToDoctor({
+    queueTokenId: queueToken._id,
+    doctorId: bestDoctor.doctor._id,
+    assignedByType: 'system',
+    assignedBy: req.user?.sub || null,
+    decisionReason: 'shortest predicted wait',
+    assignmentType: 'initial',
+  })
+
+  emitQueueUpdate(req, {
+    departmentId: updated.departmentId,
+    doctorId: updated.assignedDoctorId,
+    patientId: updated.patientId,
+  })
+
+  return sendSuccess(res, 'Queue token auto-assigned successfully', { queueToken: updated })
+})
+
+export const markQueueTokenCalled = asyncHandler(async (req, res) => {
+  const queueToken = await QueueToken.findByIdAndUpdate(
+    req.params.id,
+    { queueStatus: 'called', actualCalledAt: new Date() },
+    { new: true },
+  )
+
+  if (!queueToken) {
+    throw new ApiError(404, 'Queue token not found')
+  }
+
+  emitQueueUpdate(req, {
+    departmentId: queueToken.departmentId,
+    doctorId: queueToken.assignedDoctorId,
+    patientId: queueToken.patientId,
+  })
+
+  return sendSuccess(res, 'Queue token marked as called', { queueToken })
+})
+
+export const markQueueTokenMissed = asyncHandler(async (req, res) => {
+  const queueToken = await QueueToken.findByIdAndUpdate(
+    req.params.id,
+    { queueStatus: 'missed', isActive: false },
+    { new: true },
+  )
+
+  if (!queueToken) {
+    throw new ApiError(404, 'Queue token not found')
+  }
+
+  if (queueToken.assignedDoctorId) {
+    await recalculateDoctorQueue(queueToken.assignedDoctorId)
+  }
+
+  emitQueueUpdate(req, {
+    departmentId: queueToken.departmentId,
+    doctorId: queueToken.assignedDoctorId,
+    patientId: queueToken.patientId,
+  })
+
+  return sendSuccess(res, 'Queue token marked as missed', { queueToken })
+})
+
+export const updateQueuePriority = asyncHandler(async (req, res) => {
+  const { priorityLevel } = req.body
+
+  if (!priorityLevel || !['normal', 'urgent'].includes(priorityLevel)) {
+    throw new ApiError(400, 'priorityLevel must be "normal" or "urgent"')
+  }
+
+  const queueToken = await QueueToken.findByIdAndUpdate(
+    req.params.id,
+    { priorityLevel },
+    { new: true },
+  )
+
+  if (!queueToken) {
+    throw new ApiError(404, 'Queue token not found')
+  }
+
+  if (queueToken.assignedDoctorId) {
+    await recalculateDoctorQueue(queueToken.assignedDoctorId)
+  }
+
+  emitQueueUpdate(req, {
+    departmentId: queueToken.departmentId,
+    doctorId: queueToken.assignedDoctorId,
+    patientId: queueToken.patientId,
+  })
+
+  return sendSuccess(res, 'Queue priority updated successfully', { queueToken })
+})
+
+export const getQueueBoard = asyncHandler(async (req, res) => {
+  const { departmentId, doctorId } = req.query
+  const query = {
+    queueStatus: { $in: ['waiting', 'assigned', 'called', 'in_consultation'] },
+    isActive: true,
+  }
+
+  if (departmentId) query.departmentId = departmentId
+  if (doctorId) query.assignedDoctorId = doctorId
+
+  const queue = await QueueToken.find(query)
+    .populate('assignedDoctorId', 'fullName consultationRoom specialization')
+    .populate('patientId', 'fullName patientCode')
+    .sort({ priorityLevel: -1, createdAt: 1 })
+    .limit(100)
+
+  return sendSuccess(res, 'Queue board fetched successfully', { queue })
+})
