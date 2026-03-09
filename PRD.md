@@ -6,7 +6,7 @@ The Smart Patient Consultation Management System (SPCMS) is a digital platform d
 
 Many hospitals still depend on manual coordination for outpatient consultations. This creates long patient waiting times, overloaded doctors, uneven queue distribution, poor visibility into consultation progress, and administrative inefficiencies at reception. SPCMS addresses these issues with a responsive web-based system for patients, doctors, receptionists, and administrators.
 
-The product focuses on outpatient consultation management only. It does not cover billing, pharmacy, laboratory, inventory, inpatient care, or telemedicine in the initial release.
+The product focuses on outpatient consultation management only, including digital prescription management as part of the consultation workflow. It does not cover billing, pharmacy, laboratory, inventory, inpatient care, or telemedicine in the initial release.
 
 ## 2. Problem Statement
 
@@ -60,7 +60,8 @@ The initial product will be considered successful if, within 3 months of pilot d
 - Smart patient-to-doctor assignment
 - Doctor queue dashboard
 - Consultation status updates
-- Notifications and reminders
+- Digital prescription management
+- Multi-channel notifications and reminders (SMS, WhatsApp, email, in-system)
 - Admin reporting and audit logs
 
 ### Out of Scope for MVP
@@ -110,7 +111,8 @@ Patients can:
 - Reschedule or cancel appointments
 - Check in on arrival
 - View queue position and estimated wait time
-- Receive appointment and queue notifications
+- Receive appointment, queue, and prescription notifications
+- View prescriptions issued by their doctor
 
 ### Doctor
 
@@ -119,6 +121,7 @@ Doctors can:
 - View their daily consultation queue
 - Update their availability status
 - Start and complete consultations
+- Issue digital prescriptions during or after consultation
 - View assigned and transferred patients
 - Receive alerts when a patient is assigned
 
@@ -172,6 +175,7 @@ To make the PRD implementation-ready, the following decisions are assumed for MV
 6. Patient receives notification when consultation is approaching.
 7. Doctor begins consultation.
 8. Consultation completes and the system updates the queue.
+9. Doctor issues a digital prescription if applicable. The patient receives a notification that the prescription is ready.
 
 ### Walk-In Journey
 
@@ -322,6 +326,66 @@ Enable configuration, governance, monitoring, and reporting.
 - Audit log review
 - Export tools
 
+### 12.7 Digital Prescription Module
+
+#### Objective
+
+Allow doctors to issue structured digital prescriptions as part of the consultation workflow, giving patients immediate access to their treatment plan and medication details.
+
+#### Features
+
+- Create prescriptions linked to a specific consultation
+- Auto-generated unique prescription number (RX-{appointmentCode})
+- Structured medicine items with dosage, frequency, duration, route, and instructions
+- Diagnosis and treatment notes
+- Follow-up date and instructions
+- Doctor signature
+- One prescription per consultation enforcement
+- Patient prescription history view
+- Doctor prescription history view
+- Automatic notification to patient when prescription is created
+
+#### Business Rules
+
+- A prescription must be linked to an existing consultation.
+- Only the doctor assigned to the consultation may create or update the prescription.
+- Each consultation may have at most one prescription.
+- A prescription must contain at least one medicine item.
+- Patients can view only their own prescriptions; doctors can view prescriptions they issued.
+- Administrators can view all prescriptions.
+
+### 12.8 Notification Module
+
+#### Objective
+
+Deliver timely, multi-channel notifications to patients at key points in the consultation workflow, improving communication and reducing missed appointments.
+
+#### Features
+
+- Multi-channel delivery: SMS, WhatsApp, email, and in-system notifications
+- Automatic trigger-based notifications at key workflow events
+- Notification history and status tracking per patient
+- Retry logic with configurable maximum retries
+- Delivery status tracking (pending, sent, failed, delivered)
+- Scheduled notification support
+- Patient notification center for viewing notification history
+
+#### Automatic Notification Triggers
+
+- Appointment creation: appointment confirmation
+- Patient check-in: queue alert
+- Queue call (next in line): queue next notification
+- Queue miss: missed appointment notification
+- Prescription creation: prescription ready notification
+
+#### Business Rules
+
+- Notifications are sent automatically at defined workflow trigger points.
+- Failed notifications are retried up to a configurable maximum (default 3).
+- Patients can view their full notification history through the system channel.
+- Each notification records the delivery channel, status, timestamps, and any error details.
+- Notifications reference the relevant appointment, queue token, consultation, or prescription.
+
 ## 13. Detailed System Workflow
 
 ### Step 1: Registration
@@ -359,6 +423,10 @@ The doctor calls the next patient and marks the consultation as in progress.
 ### Step 9: Consultation Completion
 
 The doctor marks the consultation as completed. The system updates the queue and notifies the next patient.
+
+### Step 10: Prescription
+
+The doctor issues a digital prescription with diagnosis, medicines, and follow-up instructions. The system generates a unique prescription number and sends a notification to the patient.
 
 ## 14. Functional Requirements
 
@@ -410,13 +478,33 @@ The doctor marks the consultation as completed. The system updates the queue and
 - Patients must receive appointment confirmation notifications.
 - Patients must receive reminders before consultation time.
 - Patients must be notified when their consultation is approaching.
+- Patients must be notified when they are next in the queue.
+- Patients must be notified when they miss their queue call.
+- Patients must be notified when a prescription is issued for their consultation.
 - Doctors must receive new assignment notifications.
+- The system must support multiple notification channels: SMS, WhatsApp, email, and in-system.
+- The system must automatically trigger notifications at defined workflow events (appointment creation, check-in, queue call, queue miss, prescription creation).
+- Failed notifications must be retried up to a configurable maximum number of attempts.
+- The system must track delivery status and timestamps for each notification.
+- Patients must be able to view their notification history.
 
 ### 14.8 Reporting and Audit
 
 - Administrators must be able to view waiting-time and utilization reports.
 - Administrators must be able to export operational data.
 - The system must maintain an audit log for sensitive and workflow-critical actions.
+
+### 14.9 Prescription Management
+
+- Doctors must be able to create digital prescriptions linked to a consultation.
+- Each prescription must include a diagnosis, at least one medicine item, and optional treatment notes.
+- Medicine items must specify name, dosage, frequency, duration, route, and optional instructions.
+- Each consultation may have at most one prescription.
+- The system must auto-generate a unique prescription number.
+- Patients must be able to view prescriptions issued to them.
+- Doctors must be able to view prescriptions they have issued.
+- Administrators must be able to view all prescriptions.
+- The system must automatically notify the patient when a prescription is created.
 
 ## 15. Non-Functional Requirements
 
@@ -524,10 +612,49 @@ The doctor marks the consultation as completed. The system updates the queue and
 
 - Notification ID
 - Patient ID
-- Message type
-- Delivery channel
-- Delivery status
+- Appointment ID (optional)
+- Queue Token ID (optional)
+- Consultation ID (optional)
+- Prescription ID (optional)
+- Message type (appointment_confirmation, appointment_reminder, queue_alert, queue_next, doctor_assignment, cancellation, reschedule, missed_appointment, prescription_ready, general)
+- Delivery channel (sms, whatsapp, email, system)
+- Recipient
+- Subject
+- Message
+- Delivery status (pending, sent, failed, delivered)
+- Provider message ID
+- Error message
+- Scheduled-for timestamp
 - Sent timestamp
+- Delivered timestamp
+- Retry count
+- Maximum retries
+
+### Prescription Entity
+
+- Prescription ID
+- Prescription number (auto-generated, unique)
+- Patient ID
+- Doctor ID
+- Consultation ID
+- Appointment ID (optional)
+- Department ID
+- Diagnosis
+- Medicines (array of medicine items)
+  - Medicine name
+  - Dosage
+  - Frequency
+  - Duration
+  - Route
+  - Instructions
+- Treatment notes
+- Follow-up date
+- Follow-up instructions
+- Doctor signature
+- Hospital name
+- Active flag
+- Created timestamp
+- Updated timestamp
 
 ### Audit Log Entity
 
@@ -618,37 +745,38 @@ Mitigation: Keep the MVP standalone with clean APIs for future integration.
 
 This PRD does not lock implementation, but the recommended technical direction is:
 
-- Frontend: responsive web application for patients and staff
-- Backend: API-based service architecture
-- Database: relational database for core hospital workflow records
-- Realtime updates: WebSocket-based queue refresh
-- Notifications: SMS and email provider integration
+- Frontend: React 18 with Vite, Tailwind CSS, react-router-dom for routing, react-hot-toast for user feedback
+- Backend: Node.js with Express, API-based service architecture
+- Database: MongoDB with Mongoose ODM for flexible document-based storage
+- Realtime updates: Socket.IO for live queue refresh with polling fallback
+- Notifications: Multi-channel notification service (SMS, WhatsApp, email, in-system) with pluggable channel providers
+- Testing: Vitest for backend integration and unit tests
 - Hosting: containerized deployment with monitoring and backups
 
 ## 22. Delivery Roadmap
 
-### Phase 1: Discovery and Validation
+### Phase 1: Discovery and Validation (Completed)
 
 - Finalize business rules
 - Confirm queue and reassignment policies
 - Validate workflows with hospital stakeholders
 - Establish baseline metrics
 
-### Phase 2: System Design
+### Phase 2: System Design (Completed)
 
 - Define architecture
 - Design database schema
 - Define APIs and permission model
 - Document assignment logic
 
-### Phase 3: Core Platform Setup
+### Phase 3: Core Platform Setup (Completed)
 
 - Authentication and RBAC
 - Environment and deployment setup
 - Shared UI and core services
 - Audit and logging foundation
 
-### Phase 4: Appointment Module Delivery
+### Phase 4: Appointment Module Delivery (Completed)
 
 - Registration
 - Doctor schedules
@@ -656,7 +784,7 @@ This PRD does not lock implementation, but the recommended technical direction i
 - Reschedule and cancellation
 - Reminder notifications
 
-### Phase 5: Queue and Check-In Delivery
+### Phase 5: Queue and Check-In Delivery (Completed)
 
 - Check-in workflow
 - Token generation
@@ -664,28 +792,55 @@ This PRD does not lock implementation, but the recommended technical direction i
 - Wait-time estimation
 - No-show and urgent handling
 
-### Phase 6: Doctor Assignment Delivery
+### Phase 6: Doctor Assignment Delivery (Completed)
 
 - Availability state tracking
 - Assignment engine
 - Reassignment logic
 - Doctor notifications
 
-### Phase 7: Dashboards and Reporting
+### Phase 7: Dashboards and Reporting (Completed)
 
 - Doctor dashboard
 - Receptionist dashboard
 - Admin reporting
 - Audit visibility
 
-### Phase 8: Testing and Pilot Rollout
+### Phase 8: Notification System Delivery (Completed)
+
+- Multi-channel notification service (SMS, WhatsApp, email, system)
+- Automatic trigger-based notifications at workflow events
+- Notification history and status tracking
+- Retry logic with configurable attempts
+- Patient notification center
+
+### Phase 9: Digital Prescription System Delivery (Completed)
+
+- Prescription model and service
+- Doctor prescription creation during consultation
+- Auto-generated prescription numbers
+- Patient prescription viewing
+- Prescription-triggered notifications
+- Integration tests (30/30 passing)
+
+### Phase 10: Frontend UI/UX Overhaul (Completed)
+
+- Sidebar navigation layout with mobile support
+- Role-based route guards
+- Reusable components (ConfirmModal, Pagination, RoleGuard)
+- Toast notification system replacing inline alerts
+- Search, filtering, and pagination across all list pages
+- Notifications page and Prescriptions page
+- Complete rewrite of all existing pages
+
+### Phase 11: Testing and Pilot Rollout
 
 - Unit and integration testing
 - User acceptance testing
 - Staff training
 - Pilot in one outpatient department
 
-### Phase 9: Post-Pilot Improvement
+### Phase 12: Post-Pilot Improvement
 
 - Tune assignment thresholds
 - Improve estimated waiting time accuracy
@@ -697,10 +852,13 @@ This PRD does not lock implementation, but the recommended technical direction i
 ### Release 1
 
 - One outpatient department
-- Responsive patient and staff web access
+- Responsive patient and staff web access with sidebar navigation
+- Role-based access control with frontend route guards
 - Appointment scheduling
 - Check-in and queue management
 - Smart doctor assignment
+- Digital prescription management
+- Multi-channel notification system (SMS, WhatsApp, email, in-system)
 - Basic reporting
 
 ### Release 2
@@ -708,7 +866,7 @@ This PRD does not lock implementation, but the recommended technical direction i
 - Multiple departments
 - Stronger analytics
 - Better kiosk support
-- More notification channels
+- Notification channel provider integrations (production SMS/WhatsApp/email providers)
 - Initial hospital system integrations
 
 ### Release 3
@@ -725,12 +883,16 @@ The MVP is acceptable when:
 - Patients can successfully register, book, reschedule, cancel, and check in.
 - Receptionists can process booked patients and walk-ins efficiently.
 - Doctors can manage availability and consultation status.
+- Doctors can issue digital prescriptions linked to consultations.
 - The system generates and maintains an accurate real-time queue.
 - The assignment engine distributes patients according to defined rules.
-- Patients receive confirmation and queue notifications.
+- Patients receive multi-channel notifications at key workflow events (appointment confirmation, check-in, queue call, queue miss, prescription ready).
+- Patients can view their notification history and prescription records.
 - Admins can view operational reports and audit logs.
-- Pilot users can complete the end-to-end consultation workflow without manual fallback for standard cases.
+- The frontend provides role-appropriate views with sidebar navigation, search/filtering, and pagination.
+- Backend integration tests pass (30/30 covering notifications, prescriptions, and end-to-end workflows).
+- Pilot users can complete the end-to-end consultation workflow, including prescription issuance, without manual fallback for standard cases.
 
 ## 25. Summary
 
-SPCMS is an outpatient workflow optimization platform intended to reduce waiting times, improve queue transparency, and balance doctor utilization. The MVP is centered on appointments, check-in, live queueing, doctor assignment, and operational visibility. The product is designed to start with one department and scale over time into a broader hospital outpatient management platform.
+SPCMS is an outpatient workflow optimization platform intended to reduce waiting times, improve queue transparency, and balance doctor utilization. The MVP covers appointments, check-in, live queueing, doctor assignment, digital prescriptions, multi-channel notifications, and operational visibility. The frontend provides a role-based sidebar layout with modern UI patterns including search, filtering, pagination, toast notifications, and confirmation modals. The product is designed to start with one department and scale over time into a broader hospital outpatient management platform.

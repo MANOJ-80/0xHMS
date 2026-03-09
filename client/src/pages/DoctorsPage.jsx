@@ -2,46 +2,88 @@ import { useEffect, useState } from 'react'
 import SectionCard from '../components/SectionCard'
 import StatusBadge from '../components/StatusBadge'
 import LoadingSpinner from '../components/LoadingSpinner'
-import AlertBanner from '../components/AlertBanner'
 import { apiFetch } from '../lib/api'
+import toast from 'react-hot-toast'
 
 export default function DoctorsPage() {
   const [doctors, setDoctors] = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [filter, setFilter] = useState('all')
 
   useEffect(() => {
     apiFetch('/doctors')
       .then((data) => setDoctors(data.doctors || []))
-      .catch((err) => setError(err.message))
+      .catch((err) => toast.error(err.message))
       .finally(() => setLoading(false))
   }, [])
 
+  const filtered = filter === 'all'
+    ? doctors
+    : doctors.filter(d => d.availabilityStatus === filter)
+
+  const counts = {
+    all: doctors.length,
+    available: doctors.filter(d => d.availabilityStatus === 'available').length,
+    busy: doctors.filter(d => d.availabilityStatus === 'busy').length,
+    on_break: doctors.filter(d => d.availabilityStatus === 'on_break').length,
+    offline: doctors.filter(d => d.availabilityStatus === 'offline').length,
+  }
+
   return (
-    <SectionCard title="Doctor Roster" eyebrow="Staff">
-      <AlertBanner variant="error" message={error} onDismiss={() => setError('')} />
-
-      {loading ? (
-        <LoadingSpinner message="Loading doctors..." />
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {doctors.length > 0 ? doctors.map((doctor) => (
-            <div key={doctor._id} className="rounded-3xl bg-white/70 p-5 ring-1 ring-ink/10">
-              <h3 className="font-display text-xl font-semibold">{doctor.fullName}</h3>
-              <p className="mt-1 text-sm text-ink/60">{doctor.specialization || 'General Practice'}</p>
-
-              <div className="mt-4 flex items-center gap-2">
-                <StatusBadge status={doctor.availabilityStatus || 'offline'} />
-                <span className="text-xs text-ink/60">
-                  Room: {doctor.consultationRoom || 'TBD'}
-                </span>
-              </div>
-            </div>
-          )) : (
-            <p className="col-span-full py-8 text-center text-ink/60">No doctors found.</p>
-          )}
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="font-display text-2xl font-semibold">Doctors</h1>
+        <div className="flex flex-wrap gap-2">
+          {Object.entries(counts).map(([key, count]) => (
+            <button
+              key={key}
+              onClick={() => setFilter(key)}
+              className={`rounded-full px-3 py-1.5 text-xs font-medium capitalize transition ${
+                filter === key
+                  ? 'bg-ink text-white'
+                  : 'bg-white text-ink/60 ring-1 ring-ink/10 hover:text-ink'
+              }`}
+            >
+              {key.replace(/_/g, ' ')} ({count})
+            </button>
+          ))}
         </div>
-      )}
-    </SectionCard>
+      </div>
+
+      <SectionCard title="Doctor Roster" eyebrow={`${filtered.length} doctor${filtered.length !== 1 ? 's' : ''}`}>
+        {loading ? (
+          <LoadingSpinner message="Loading doctors..." />
+        ) : filtered.length === 0 ? (
+          <p className="py-8 text-center text-ink/50">No doctors found.</p>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {filtered.map((doctor) => (
+              <div key={doctor._id} className="rounded-2xl bg-white/70 p-5 ring-1 ring-ink/10 transition hover:shadow-sm">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold">Dr. {doctor.fullName}</h3>
+                    <p className="mt-0.5 text-xs text-ink/50">{doctor.specialization || 'General Practice'}</p>
+                  </div>
+                  <StatusBadge status={doctor.availabilityStatus || 'offline'} />
+                </div>
+
+                <div className="mt-4 flex items-center gap-4 text-xs text-ink/50">
+                  <span>Room: {doctor.consultationRoom || 'TBD'}</span>
+                  {doctor.maxQueueThreshold && (
+                    <span>Max queue: {doctor.maxQueueThreshold}</span>
+                  )}
+                </div>
+
+                {doctor.departmentId && (
+                  <p className="mt-2 text-xs text-ink/40">
+                    Dept: {doctor.departmentId?.name || doctor.departmentId}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </SectionCard>
+    </div>
   )
 }

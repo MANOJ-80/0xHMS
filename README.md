@@ -1,6 +1,6 @@
 # Smart Patient Consultation Management System (SPCMS)
 
-A full-stack hospital outpatient management application with real-time queue tracking, smart doctor assignment, and role-based workflows for administrators, receptionists, doctors, and patients.
+A full-stack hospital outpatient management application with real-time queue tracking, smart doctor assignment, digital prescriptions, patient notifications, and role-based workflows for administrators, receptionists, doctors, and patients.
 
 **Stack:** React 18 + Vite + Tailwind CSS | Express + Mongoose + Socket.IO | MongoDB Atlas
 
@@ -23,10 +23,13 @@ A full-stack hospital outpatient management application with real-time queue tra
 13. [Seed Data & Test Accounts](#seed-data--test-accounts)
 14. [Consultation Workflow](#consultation-workflow)
 15. [Smart Doctor Assignment](#smart-doctor-assignment)
-16. [Error Handling](#error-handling)
-17. [Known Limitations & Future Work](#known-limitations--future-work)
-18. [Vercel Deployment](#vercel-deployment)
-19. [Live Demo & Testing Credentials](#live-demo--testing-credentials)
+16. [Notification System](#notification-system)
+17. [Prescription System](#prescription-system)
+18. [Testing](#testing)
+19. [Error Handling](#error-handling)
+20. [Known Limitations & Future Work](#known-limitations--future-work)
+21. [Vercel Deployment](#vercel-deployment)
+22. [Live Demo & Testing Credentials](#live-demo--testing-credentials)
 
 ---
 
@@ -99,6 +102,7 @@ HospitalManagement/
 │
 ├── server/
 │   ├── package.json             # Server dependencies
+│   ├── vitest.config.js         # Test runner configuration
 │   ├── .env                     # Environment variables
 │   └── src/
 │       ├── server.js            # HTTP server + Socket.IO bootstrap
@@ -120,10 +124,11 @@ HospitalManagement/
 │       │   ├── Checkin.js       # Walk-in and appointment check-ins
 │       │   ├── QueueToken.js    # Queue tokens with position tracking
 │       │   ├── Consultation.js  # Consultation sessions
+│       │   ├── Prescription.js  # Digital prescriptions with medicines
 │       │   ├── DoctorAssignment.js  # Assignment audit trail
 │       │   ├── SystemConfig.js  # System configuration key-value store
 │       │   ├── AuditLog.js      # System audit logs
-│       │   └── Notification.js  # Notification records (unused)
+│       │   └── Notification.js  # Patient notification records
 │       ├── controllers/
 │       │   ├── authController.js
 │       │   ├── checkinController.js
@@ -133,6 +138,8 @@ HospitalManagement/
 │       │   ├── doctorController.js
 │       │   ├── patientController.js
 │       │   ├── departmentController.js
+│       │   ├── notificationController.js
+│       │   ├── prescriptionController.js
 │       │   ├── reportController.js
 │       │   ├── configController.js
 │       │   ├── auditController.js
@@ -146,23 +153,33 @@ HospitalManagement/
 │       │   ├── doctorRoutes.js
 │       │   ├── patientRoutes.js
 │       │   ├── departmentRoutes.js
+│       │   ├── notificationRoutes.js
+│       │   ├── prescriptionRoutes.js
 │       │   ├── reportRoutes.js
 │       │   ├── configRoutes.js
 │       │   ├── auditRoutes.js
 │       │   └── healthRoutes.js
 │       ├── services/
-│       │   ├── assignmentService.js  # Smart doctor assignment logic
-│       │   ├── queueService.js       # Queue recalculation
-│       │   ├── socketService.js      # Shared Socket.IO emit helper
-│       │   └── auditService.js       # Audit log creation
+│       │   ├── assignmentService.js    # Smart doctor assignment logic
+│       │   ├── queueService.js         # Queue recalculation
+│       │   ├── socketService.js        # Shared Socket.IO emit helper
+│       │   ├── auditService.js         # Audit log creation
+│       │   ├── notificationService.js  # Multi-channel notification dispatch
+│       │   └── prescriptionService.js  # Prescription record creation
 │       ├── utils/
 │       │   ├── ApiError.js       # Custom error class with status codes
 │       │   ├── asyncHandler.js   # Async/await wrapper for controllers
 │       │   ├── response.js       # Standardized JSON response helper
 │       │   ├── tokens.js         # JWT sign helpers
 │       │   └── code.js           # Unique code generators
-│       └── scripts/
-│           └── seed.js           # Database seed script
+│       ├── scripts/
+│       │   └── seed.js           # Database seed script
+│       └── tests/
+│           ├── setup.js              # Test DB lifecycle (connect, seed, teardown)
+│           ├── helpers.js            # Auth + request helpers for tests
+│           ├── notification.test.js  # Notification API integration tests (11 tests)
+│           ├── prescription.test.js  # Prescription API integration tests (10 tests)
+│           └── workflow.test.js      # End-to-end consultation workflow tests (9 tests)
 │
 └── client/
     ├── package.json              # Client dependencies
@@ -172,27 +189,33 @@ HospitalManagement/
     ├── postcss.config.js         # PostCSS with Tailwind + Autoprefixer
     └── src/
         ├── main.jsx              # React 18 entry, providers
-        ├── App.jsx               # Router, layout, navigation, role guards
+        ├── App.jsx               # Sidebar layout, router, role guards, toast provider
         ├── styles.css            # Tailwind imports + custom base styles
         ├── lib/
         │   ├── api.js            # Fetch wrapper with JWT + 401 handling
-        │   └── socket.js         # Socket.IO client singleton
+        │   ├── socket.js         # Socket.IO client singleton
+        │   └── useQueuePolling.js # Hybrid Socket.IO + REST polling hook
         ├── components/
         │   ├── AuthProvider.jsx  # Auth context (login, logout, user state)
         │   ├── SectionCard.jsx   # Glassmorphic card wrapper
         │   ├── StatusBadge.jsx   # Colour-mapped status pill
         │   ├── LoadingSpinner.jsx # Animated loading indicator
-        │   └── AlertBanner.jsx   # Dismissible notification banner
+        │   ├── AlertBanner.jsx   # Dismissible inline notification banner
+        │   ├── ConfirmModal.jsx  # Native <dialog> confirmation modal
+        │   ├── RoleGuard.jsx     # Role-based route protection component
+        │   └── Pagination.jsx    # Reusable pagination bar with page numbers
         └── pages/
-            ├── LoginPage.jsx          # Login form with role-based redirect
-            ├── DashboardPage.jsx      # Admin overview / staff metrics
-            ├── CheckinPage.jsx        # Front desk check-in workflow
-            ├── AppointmentsPage.jsx   # Appointment booking & management
-            ├── QueueBoardPage.jsx     # Real-time queue display board
-            ├── PatientsPage.jsx       # Patient directory
-            ├── DoctorsPage.jsx        # Doctor roster
-            ├── DoctorDashboardPage.jsx    # Doctor consultation workflow
-            └── PatientDashboardPage.jsx   # Patient self-service portal
+            ├── LoginPage.jsx              # Login form with role-based redirect
+            ├── DashboardPage.jsx          # Admin/receptionist overview with live data
+            ├── CheckinPage.jsx            # Front desk check-in workflow
+            ├── AppointmentsPage.jsx       # Appointment booking & management
+            ├── QueueBoardPage.jsx         # Real-time queue display board
+            ├── PatientsPage.jsx           # Patient directory with search
+            ├── DoctorsPage.jsx            # Doctor roster with availability filters
+            ├── DoctorDashboardPage.jsx    # Doctor consultation + prescription workflow
+            ├── PatientDashboardPage.jsx   # Patient self-service portal
+            ├── NotificationsPage.jsx      # Notification center with filters
+            └── PrescriptionsPage.jsx      # Prescription viewer with detail panel
 ```
 
 ---
@@ -229,6 +252,8 @@ The frontend uses one optional env var:
 | `npm run dev:client` | `npm run dev --workspace client` | Start Vite dev server |
 | `npm run build` | `npm run build --workspace client` | Build frontend for production |
 | `npm run start` | `npm run start --workspace server` | Start backend (production) |
+| `npm test` | `npm test --workspace server` | Run backend integration tests |
+| `npm run test:watch` | `npm run test:watch --workspace server` | Run tests in watch mode |
 
 ### Server
 
@@ -237,6 +262,8 @@ The frontend uses one optional env var:
 | `npm run dev` | `node --watch src/server.js` | Start with Node.js file watcher |
 | `npm run start` | `node src/server.js` | Start without watcher |
 | `npm run seed` | `node src/scripts/seed.js` | Seed the database |
+| `npm test` | `vitest run` | Run integration tests (30 tests) |
+| `npm run test:watch` | `vitest` | Run tests in watch mode |
 
 ### Client
 
@@ -265,21 +292,21 @@ The frontend uses one optional env var:
 │  ┌──────────┐  ┌────────────┐  ┌──────────┐  ┌──────────┐  │
 │  │ Middleware│→ │  Routes     │→ │Controllers│→ │ Services │  │
 │  │ CORS     │  │ /api/v1/... │  │ Validation│  │ Assignment│  │
-│  │ Helmet   │  │ 12 modules  │  │ Business  │  │ Queue    │  │
-│  │ Auth/JWT │  │ 37 endpoints│  │ Logic     │  │ Socket   │  │
-│  │ Morgan   │  │             │  │           │  │ Audit    │  │
+│  │ Helmet   │  │ 14 modules  │  │ Business  │  │ Queue    │  │
+│  │ Auth/JWT │  │ 47 endpoints│  │ Logic     │  │ Socket   │  │
+│  │ Morgan   │  │             │  │           │  │ Notify   │  │
 │  └──────────┘  └────────────┘  └──────────┘  └──────────┘  │
 │                                                              │
 │  ┌──────────────────────┐  ┌────────────────────────────┐   │
 │  │    Mongoose Models   │  │       Socket.IO Server      │   │
-│  │    12 collections    │  │  Rooms: department, doctor,  │   │
+│  │    13 collections    │  │  Rooms: department, doctor,  │   │
 │  │    with indexes      │  │         patient              │   │
 │  └──────────┬───────────┘  └────────────────────────────┘   │
 └─────────────┼───────────────────────────────────────────────┘
               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                     MongoDB Atlas                            │
-│                    12 collections                             │
+│                    13 collections                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -291,7 +318,7 @@ The frontend uses one optional env var:
 4. **express.json()** — JSON body parser
 5. **express.urlencoded()** — URL-encoded body parser
 6. **cookie-parser** — Cookie parsing
-7. **Route handlers** — 12 route modules mounted under `/api/v1`
+7. **Route handlers** — 14 route modules mounted under `/api/v1`
 8. **notFound** — 404 catch-all
 9. **errorHandler** — Global error normalizer
 
@@ -367,10 +394,11 @@ Error responses:
 | 6 | `checkins` | Check-in records (walk-in & scheduled) | `checkinNumber` (unique), `patientId+createdAt`, `departmentId+status` |
 | 7 | `queuetokens` | Queue tokens with position tracking | `tokenNumber` (unique), `assignedDoctorId+queueStatus+isActive`, `departmentId+queueStatus+isActive`, `patientId+isActive` |
 | 8 | `consultations` | Active/completed consultation sessions | `consultationNumber` (unique), `doctorId+status`, `patientId+createdAt`, `queueTokenId` |
-| 9 | `doctorassignments` | Audit trail of doctor assignments | `queueTokenId`, `assignedDoctorId+createdAt` |
-| 10 | `systemconfigs` | Key-value system configuration | `key` (unique) |
-| 11 | `auditlogs` | System audit trail | default `_id` only |
-| 12 | `notifications` | Notification records (currently unused) | default `_id` only |
+| 9 | `prescriptions` | Digital doctor prescriptions | `prescriptionNumber` (unique), `patientId+createdAt`, `doctorId+createdAt`, `consultationId` |
+| 10 | `doctorassignments` | Audit trail of doctor assignments | `queueTokenId`, `assignedDoctorId+createdAt` |
+| 11 | `systemconfigs` | Key-value system configuration | `key` (unique) |
+| 12 | `auditlogs` | System audit trail | default `_id` only |
+| 13 | `notifications` | Patient notification records with delivery tracking | `patientId+createdAt`, `status+scheduledFor`, `appointmentId`, `type+createdAt` |
 
 ### Entity Relationship Summary
 
@@ -382,7 +410,9 @@ Appointment ──N:1──> Patient, Doctor, Department
 Checkin ──N:1──> Patient, Department, Appointment (optional)
 QueueToken ──N:1──> Patient, Doctor, Department, Checkin, Appointment (optional)
 Consultation ──N:1──> Patient, Doctor, Department, QueueToken
+Prescription ──1:1──> Consultation; N:1──> Patient, Doctor, Department
 DoctorAssignment ──N:1──> Patient, Doctor, Department, QueueToken
+Notification ──N:1──> Patient; optional refs to Appointment, QueueToken, Consultation, Prescription
 ```
 
 ### Model Details
@@ -519,6 +549,59 @@ DoctorAssignment ──N:1──> Patient, Doctor, Department, QueueToken
 | `startedAt` | Date | Default `now` |
 | `completedAt` | Date | Set on completion |
 | `consultationNotes` | String | Clinical notes |
+
+#### Prescription
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `prescriptionNumber` | String | Required, unique (e.g. `RX-ABC123`) |
+| `patientId` | ObjectId -> Patient | Required |
+| `doctorId` | ObjectId -> Doctor | Required |
+| `consultationId` | ObjectId -> Consultation | Required, one prescription per consultation |
+| `appointmentId` | ObjectId -> Appointment | Optional |
+| `departmentId` | ObjectId -> Department | Required |
+| `diagnosis` | String | Required |
+| `medicines` | Array | Embedded medicine items (see below) |
+| `treatmentNotes` | String | Optional treatment notes |
+| `followUpDate` | Date | Optional follow-up date |
+| `followUpInstructions` | String | Optional follow-up instructions |
+| `doctorSignature` | String | Optional doctor signature text |
+| `hospitalName` | String | Default `SPCMS Hospital` |
+| `isActive` | Boolean | Default `true` |
+
+**Medicine Item (embedded):**
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `medicineName` | String | Required |
+| `dosage` | String | Required (e.g. `500mg`) |
+| `frequency` | String | Required (e.g. `Twice daily`) |
+| `duration` | String | Required (e.g. `7 days`) |
+| `route` | String | Default `oral` |
+| `instructions` | String | Optional special instructions |
+
+#### Notification
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `patientId` | ObjectId -> Patient | Required |
+| `appointmentId` | ObjectId -> Appointment | Optional |
+| `queueTokenId` | ObjectId -> QueueToken | Optional |
+| `consultationId` | ObjectId -> Consultation | Optional |
+| `prescriptionId` | ObjectId -> Prescription | Optional |
+| `type` | String | `appointment_confirmation` \| `appointment_reminder` \| `queue_alert` \| `queue_next` \| `doctor_assignment` \| `cancellation` \| `reschedule` \| `missed_appointment` \| `prescription_ready` \| `general` |
+| `channel` | String | `sms` \| `whatsapp` \| `email` \| `system` |
+| `recipient` | String | Required (phone, email, or `system`) |
+| `subject` | String | Notification subject |
+| `message` | String | Required notification body |
+| `status` | String | `pending` \| `sent` \| `failed` \| `delivered` |
+| `providerMessageId` | String | External provider reference |
+| `errorMessage` | String | Error details for failed notifications |
+| `scheduledFor` | Date | Optional future send time |
+| `sentAt` | Date | Timestamp when sent |
+| `deliveredAt` | Date | Timestamp when delivered |
+| `retryCount` | Number | Default `0` |
+| `maxRetries` | Number | Default `3` |
 
 #### DoctorAssignment
 
@@ -708,6 +791,69 @@ Base URL: `http://localhost:5000/api/v1`
 | GET | `/reports/overview` | None | - | Public metrics (checked-in today, avg wait, active doctors, urgent count) |
 | GET | `/reports/dashboard` | Bearer | admin | Full dashboard with doctor availability breakdown |
 
+### Notifications
+
+| Method | Path | Auth | Roles | Description |
+|--------|------|------|-------|-------------|
+| GET | `/notifications` | Bearer | admin, receptionist, doctor, patient | List notifications (patients see only their own) |
+| GET | `/notifications/:id` | Bearer | admin, receptionist, doctor, patient | Get notification by ID |
+| GET | `/notifications/stats` | Bearer | admin | Today's notification statistics (total, sent, failed, pending) |
+| POST | `/notifications/send` | Bearer | admin, receptionist | Send a manual/ad-hoc notification |
+| PATCH | `/notifications/:id/retry` | Bearer | admin | Retry a failed notification |
+
+**POST `/notifications/send` request:**
+```json
+{
+  "patientId": "...",
+  "recipient": "+91...",
+  "message": "Your appointment is confirmed",
+  "type": "general",
+  "channel": "sms",
+  "subject": "Appointment Update"
+}
+```
+
+**GET `/notifications/stats` response:**
+```json
+{
+  "success": true,
+  "data": {
+    "stats": { "total": 25, "sent": 20, "failed": 2, "pending": 1, "delivered": 2 }
+  }
+}
+```
+
+### Prescriptions
+
+| Method | Path | Auth | Roles | Description |
+|--------|------|------|-------|-------------|
+| GET | `/prescriptions` | Bearer | admin, doctor, receptionist, patient | List prescriptions (patients see only their own) |
+| GET | `/prescriptions/:id` | Bearer | admin, doctor, receptionist, patient | Get prescription with full populated details |
+| GET | `/prescriptions/patient/:patientId` | Bearer | admin, doctor, receptionist, patient | Get all prescriptions for a specific patient |
+| POST | `/prescriptions` | Bearer | doctor | Create a prescription for a completed consultation |
+| PATCH | `/prescriptions/:id` | Bearer | doctor, admin | Update prescription (doctor can only update own) |
+
+**POST `/prescriptions` request:**
+```json
+{
+  "consultationId": "...",
+  "diagnosis": "Upper respiratory tract infection",
+  "medicines": [
+    {
+      "medicineName": "Amoxicillin",
+      "dosage": "500mg",
+      "frequency": "Three times daily",
+      "duration": "7 days",
+      "route": "oral",
+      "instructions": "Take after meals"
+    }
+  ],
+  "treatmentNotes": "Rest and hydration advised",
+  "followUpDate": "2026-03-17",
+  "followUpInstructions": "Return if symptoms persist"
+}
+```
+
 ### System Config
 
 | Method | Path | Auth | Roles | Description |
@@ -758,14 +904,18 @@ All controllers use `socketService.emitQueueUpdate(req, { departmentId, doctorId
 | Path | Page | Roles | Description |
 |------|------|-------|-------------|
 | `/login` | LoginPage | Unauthenticated | Email/password login |
-| `/` | DashboardPage | admin, receptionist | Admin dashboard with metrics |
+| `/` | DashboardPage | admin, receptionist | Admin dashboard with live data |
 | `/checkin` | CheckinPage | admin, receptionist | Walk-in and appointment check-in |
-| `/appointments` | AppointmentsPage | admin, receptionist, doctor | Appointment booking and management |
+| `/appointments` | AppointmentsPage | admin, receptionist, doctor, patient | Appointment booking and management |
 | `/queue-board` | QueueBoardPage | All authenticated | Real-time queue display |
-| `/patients` | PatientsPage | admin, receptionist | Patient directory |
-| `/doctors` | DoctorsPage | admin, receptionist | Doctor roster |
-| `/doctor-dashboard` | DoctorDashboardPage | doctor | Consultation workflow |
+| `/patients` | PatientsPage | admin, receptionist | Patient directory with search |
+| `/doctors` | DoctorsPage | admin, receptionist | Doctor roster with availability filters |
+| `/notifications` | NotificationsPage | All authenticated | Notification center with filters |
+| `/prescriptions` | PrescriptionsPage | All authenticated | Prescription viewer |
+| `/doctor-dashboard` | DoctorDashboardPage | doctor | Consultation + prescription workflow |
 | `/patient-dashboard` | PatientDashboardPage | patient | Self-service portal |
+
+All routes (except `/login`) are wrapped in `RoleGuard` components that verify the user's role before rendering the page. Unauthorized access redirects to the user's default dashboard.
 
 ### Role-Based Redirects
 
@@ -776,51 +926,64 @@ After login, users are redirected based on their role:
 
 The catch-all route (`*`) also redirects based on role if the user is authenticated.
 
-### Navigation Items by Role
+### Navigation
+
+The application uses a **sidebar layout** with a collapsible navigation panel. On mobile, the sidebar is hidden behind a hamburger menu.
+
+#### Navigation Items by Role
 
 | Role | Nav Items |
 |------|-----------|
-| admin / receptionist | Overview, Check-in, Appointments, Queue Board, Patients, Doctors |
-| doctor | Dr. Dashboard, Appointments, Queue Board |
-| patient | My Dashboard |
+| admin / receptionist | Overview, Check-in, Appointments, Queue Board, Patients, Doctors, Notifications, Prescriptions |
+| doctor | Dr. Dashboard, Appointments, Queue Board, Notifications, Prescriptions |
+| patient | My Dashboard, Appointments, Notifications, Prescriptions |
 
 ### Page Details
 
 #### LoginPage
-Login form with email and password. Displays seed data hints for test accounts. Uses `AlertBanner` for error display. Role-based redirect on success.
+Login form with email and password. Displays brand icon. Uses `react-hot-toast` for error feedback. Role-based redirect on success.
 
 #### DashboardPage
-- **Admin view:** 4 metric cards (checked-in today, avg wait, active doctors, urgent cases) + doctor availability breakdown table + feature lane cards
-- **Non-admin view:** Same 4 metrics from the public overview endpoint
+- Greeting with user's name and current date
+- 4 metric cards (checked-in today, avg wait, active doctors, urgent cases)
+- Recent appointments section (latest 5 appointments with status badges)
+- Recent notifications section (latest 5 notifications)
+- Admin view includes doctor availability breakdown
 
 #### CheckinPage
-Front desk workflow. Form with: patient selector, department, specialization (populated from doctors in selected department), optional doctor preference, urgency level toggle, walk-in checkbox, notes. On success, displays the generated queue token number and auto-redirects to the queue board after 2 seconds.
+Front desk workflow. Form with: patient selector, department, specialization (populated from doctors in selected department), optional doctor preference, urgency level toggle, walk-in checkbox, notes. Uses toast notifications for success/error feedback. On success, displays the generated queue token number.
 
 #### AppointmentsPage
-Two-column layout. Left: booking form (patient, department, doctor, date, time). Right: appointments table with status badges and cancel buttons for scheduled appointments.
+Two-column layout. Left: booking form with client-side validation (patient, department, doctor, date, time). Right: appointments table with status badges, cancel buttons (using `ConfirmModal`), and pagination. Uses toast notifications for all user feedback.
 
 #### QueueBoardPage
-Real-time grid of queue token cards. Each card shows token number, patient name, assigned doctor (or "Awaiting doctor assignment"), status badge, and estimated wait time. Subscribes to Socket.IO `queue:updated` events via `join:department` rooms.
+Real-time grid of queue token cards with status filter tabs (All, Waiting, In Consultation, Completed, Missed). Each card shows token number, patient name, assigned doctor, status badge, and estimated wait time. Live indicator shows real-time connection status. Subscribes to Socket.IO `queue:updated` events.
 
 #### PatientsPage
-Read-only table: name, phone, email, active/inactive status badges.
+Patient directory table with search bar (filters by name, code, phone, email). Displays name, phone, email, and active/inactive status badges. Includes pagination.
 
 #### DoctorsPage
-Card grid: doctor name, specialization, availability status badge, consultation room.
+Card grid with availability status filter buttons (All, Available, Busy, On Break, Offline) showing counts for each status. Each card shows doctor name, specialization, availability status badge, and consultation room.
 
 #### DoctorDashboardPage
 Two-column layout for doctors:
-- **Left:** Patient queue list ordered by position. Each entry shows token number (last segment), patient name, wait time, priority badge. "Call Next" button for the first waiting patient.
-- **Right:** Active consultation panel with pulsing indicator, clinical notes textarea, "Complete Consultation" button.
+- **Left:** Patient queue list ordered by position. Each entry shows token number, patient name, wait time, priority badge. "Call Next" button for the first waiting patient. Availability status toggle (available / busy / on_break / offline).
+- **Right:** Active consultation panel with pulsing indicator, clinical notes textarea, "Complete Consultation" button. After completion, a prescription creation form appears with: diagnosis, dynamic medicine item builder (add/remove medicines with name, dosage, frequency, duration, route, instructions), treatment notes, follow-up date, follow-up instructions. Option to skip prescription.
 
 Subscribes to `join:doctor` Socket.IO room.
 
 #### PatientDashboardPage
 Two-column layout for patients:
-- **Left:** Live queue status (active tokens with doctor, room, status, wait time) + upcoming appointments with cancel buttons.
-- **Right:** Self-service appointment booking form (department, doctor, date, time).
+- **Left:** Live queue status (active tokens with doctor, room, status, wait time) + upcoming appointments with cancel buttons (using `ConfirmModal`).
+- **Right:** Self-service appointment booking form (department, doctor, date, time) + recent prescriptions section + recent notifications section.
 
 Subscribes to `join:patient` Socket.IO room.
+
+#### NotificationsPage
+Notification center with type filter tabs (All, Appointment, Queue, Prescription, etc.), paginated notification list, and detail panel. Shows notification type, channel, status, timestamp, and full message. Admin users can retry failed notifications. Patients see only their own notifications.
+
+#### PrescriptionsPage
+Prescription list with detail panel. Shows prescription number, patient name, doctor name, diagnosis, and date. Detail panel displays full prescription including all medicine items (name, dosage, frequency, duration, route, instructions), diagnosis, treatment notes, follow-up date, and follow-up instructions. Includes pagination.
 
 ---
 
@@ -849,7 +1012,19 @@ Props: `status`, `label` (override text), `tone` (override color), `className`.
 Animated pulsing dot with "Loading..." text. Props: `message`, `fullPage` (centers in 60vh container).
 
 ### `AlertBanner` (`components/AlertBanner.jsx`)
-Dismissible inline notification banner. Variants: `error` (coral), `success` (moss), `info` (teal), `warning` (sand). Props: `message`, `variant`, `onDismiss`. Returns `null` if no message is provided.
+Dismissible inline notification banner for persistent messages. Variants: `error` (coral), `success` (moss), `info` (teal), `warning` (sand). Props: `message`, `variant`, `onDismiss`. Returns `null` if no message is provided. For transient feedback (success/error after actions), `react-hot-toast` is used instead.
+
+### `ConfirmModal` (`components/ConfirmModal.jsx`)
+Native `<dialog>` based confirmation modal that replaces `window.confirm()` throughout the application. Glassmorphic design with backdrop blur. Props: `open`, `title`, `message`, `confirmLabel` (default "Confirm"), `cancelLabel` (default "Cancel"), `onConfirm`, `onCancel`, `variant` (`danger` for destructive actions).
+
+### `RoleGuard` (`components/RoleGuard.jsx`)
+Role-based route protection component. Wraps page components and checks the authenticated user's role against a list of allowed roles. If the user's role is not permitted, they are redirected to their default dashboard. Props: `roles` (array of allowed role strings), `children`.
+
+### `Pagination` (`components/Pagination.jsx`)
+Reusable pagination bar with page numbers, previous/next buttons, and ellipsis for large page counts. Props: `currentPage`, `totalPages`, `onPageChange`. Automatically hides when there is only one page.
+
+### Toast Notifications (`react-hot-toast`)
+The application uses `react-hot-toast` for transient feedback (success, error, loading states). The `<Toaster>` provider is mounted in `App.jsx` with custom styling matching the design system. Used across all pages for form submissions, API errors, and action confirmations.
 
 ---
 
@@ -945,13 +1120,15 @@ The complete patient consultation journey follows these steps:
        │
        ├── Creates Checkin record
        ├── Creates QueueToken (A-OPD-001 format)
-       └── Creates DoctorAssignment (via smart assignment)
+       ├── Creates DoctorAssignment (via smart assignment)
+       └── Sends doctor_assignment notification to patient
        │
 4. WAIT          Patient waits; real-time position updates via Socket.IO
        │
 5. CALL          Doctor calls next patient from their queue
        │
-       └── QueueToken status: waiting -> called
+       ├── QueueToken status: waiting -> called
+       └── Sends queue_next notification to patient
        │
 6. CONSULT       Doctor starts consultation
        │
@@ -964,9 +1141,16 @@ The complete patient consultation journey follows these steps:
        ├── QueueToken status: in_consultation -> completed
        └── Queue positions recalculated for remaining patients
        │
-8. (OPTIONAL) TRANSFER    Doctor transfers to another doctor
+8. PRESCRIBE     Doctor creates digital prescription (optional)
        │
-9. (OPTIONAL) MISS        Patient doesn't respond when called
+       ├── Creates Prescription record with medicines, diagnosis, follow-up
+       └── Sends prescription_ready notification to patient
+       │
+9. (OPTIONAL) TRANSFER    Doctor transfers to another doctor
+       │
+10. (OPTIONAL) MISS       Patient doesn't respond when called
+       │
+       └── Sends missed_appointment notification to patient
 ```
 
 ### Token Number Format
@@ -1007,6 +1191,107 @@ After every assignment, call, miss, or consultation completion:
 
 ---
 
+## Notification System
+
+The notification system provides multi-channel patient communication with pluggable delivery providers.
+
+### Notification Types
+
+| Type | Triggered By | Description |
+|------|-------------|-------------|
+| `appointment_confirmation` | Appointment creation | Confirms booking details with date, time, and doctor |
+| `doctor_assignment` | Check-in / queue assignment | Informs patient of assigned doctor and consultation room |
+| `queue_alert` | Queue position update | Provides queue position and estimated wait time |
+| `queue_next` | Doctor calls patient | Notifies patient they are next and should proceed to room |
+| `missed_appointment` | Token marked as missed | Informs patient their slot was skipped |
+| `prescription_ready` | Prescription creation | Notifies patient their prescription is available in the portal |
+| `cancellation` | Appointment cancellation | Confirms appointment cancellation |
+| `general` | Manual send by staff | Ad-hoc notification from admin or receptionist |
+
+### Delivery Channels
+
+| Channel | Status | Description |
+|---------|--------|-------------|
+| `system` | Active | In-app notifications (stored in DB, displayed in Notification Center) |
+| `sms` | Mock | SMS via provider (Twilio/MSG91 integration point ready) |
+| `whatsapp` | Mock | WhatsApp Business API integration point ready |
+| `email` | Planned | Email provider integration point |
+
+SMS and WhatsApp channels currently log to console in development. Replace the mock functions in `notificationService.js` with actual provider API calls for production.
+
+### Retry Logic
+
+Failed notifications can be retried up to `maxRetries` (default 3) times via the `PATCH /notifications/:id/retry` endpoint. Each retry increments `retryCount` and re-attempts delivery through the original channel.
+
+### Automatic Notifications
+
+Notifications are sent automatically at key points in the consultation workflow:
+- **Appointment booked** -> `appointment_confirmation`
+- **Patient checked in** -> `doctor_assignment`
+- **Doctor calls patient** -> `queue_next`
+- **Patient misses slot** -> `missed_appointment`
+- **Prescription created** -> `prescription_ready`
+
+---
+
+## Prescription System
+
+Digital prescriptions are created by doctors after completing a consultation.
+
+### Features
+
+- One prescription per consultation (enforced by unique constraint on `consultationId`)
+- Dynamic medicine list with name, dosage, frequency, duration, route, and special instructions
+- Diagnosis and treatment notes
+- Optional follow-up date and instructions
+- Doctor signature and hospital name
+- Audit trail via `auditService`
+- Automatic `prescription_ready` notification sent to patient on creation
+
+### Prescription Number Format
+
+Prescription numbers use the format `RX-{randomCode}` (e.g., `RX-K7M2P1`), generated by the same code utility used for other entity numbers.
+
+### Workflow Integration
+
+After a doctor completes a consultation, the frontend presents a prescription creation form. The doctor can:
+1. Fill in diagnosis, medicines, treatment notes, and follow-up details
+2. Submit the prescription (triggers `prescription_ready` notification)
+3. Or skip prescription creation if not needed
+
+---
+
+## Testing
+
+The project includes integration tests using **Vitest** with a dedicated test database.
+
+### Test Suites
+
+| Suite | File | Tests | Description |
+|-------|------|-------|-------------|
+| Notifications | `notification.test.js` | 11 | CRUD operations, manual send, retry, stats, access control |
+| Prescriptions | `prescription.test.js` | 10 | Create, read, update, patient history, validation, duplicate prevention |
+| Workflow | `workflow.test.js` | 9 | End-to-end: appointment -> check-in -> queue -> consultation -> prescription with notification verification |
+
+**Total: 30 tests, all passing.**
+
+### Running Tests
+
+```bash
+# Run all tests once
+npm test --workspace server
+
+# Run tests in watch mode
+npm run test:watch --workspace server
+```
+
+### Test Infrastructure
+
+- **`setup.js`** — Connects to a test MongoDB instance, seeds test data, and tears down after all suites
+- **`helpers.js`** — Provides authenticated request helpers (`adminRequest`, `doctorRequest`, `receptionistRequest`) that automatically attach JWT tokens
+
+---
+
 ## Error Handling
 
 ### Backend Error Classes
@@ -1033,8 +1318,12 @@ Stack traces are included in non-production responses. Server-side `console.erro
 ### Frontend Error Handling
 
 - `api.js` detects 401 responses, clears the stored token, and redirects to `/login`
-- All pages use `AlertBanner` to display errors from failed API calls
+- Transient feedback (success/error after actions) uses `react-hot-toast` toast notifications
+- Persistent inline messages use `AlertBanner` where appropriate
+- Form validation errors are shown as toast notifications before submission
 - Loading states are managed with `LoadingSpinner`
+- `ConfirmModal` replaces `window.confirm()` for destructive actions (cancellations, deletions)
+- `RoleGuard` prevents unauthorized route access on the frontend
 
 ---
 
@@ -1046,19 +1335,21 @@ These items are identified but not yet implemented:
 
 2. **No MongoDB transactions** — The check-in flow creates Checkin + QueueToken + DoctorAssignment as separate saves. A failure between saves could leave the database in an inconsistent state.
 
-3. **No pagination** — List endpoints return all records. Large datasets will cause performance issues.
+3. **No server-side pagination** — List endpoints return up to 100 records (capped by `.limit()`). Client-side pagination is implemented, but true cursor/offset pagination should be added for large datasets.
 
 4. **WebSocket connections are unauthenticated** — Any client can join any Socket.IO room without JWT verification.
 
 5. **No refresh token rotation endpoint** — The backend signs refresh tokens but there's no `/auth/refresh` endpoint to exchange them.
 
-6. **No test suite** — No unit or integration tests exist.
+6. **SMS/WhatsApp providers are mocked** — Notification channels log to console. Production deployment requires integrating actual SMS (Twilio, MSG91) and WhatsApp Business API providers.
 
-7. **Notification model is dead code** — The `Notification` schema exists but is never referenced by any controller, service, or route.
+7. **Single department seeded** — Only the OPD department exists in seed data. Multi-department workflows are supported by the schema but untested.
 
-8. **No per-route role guards on frontend** — Navigation items are filtered by role, but routes themselves are accessible to any authenticated user via direct URL entry.
+### Resolved (previously listed as limitations)
 
-9. **Single department seeded** — Only the OPD department exists in seed data. Multi-department workflows are supported by the schema but untested.
+- ~~No test suite~~ — 30 integration tests now covering notifications, prescriptions, and end-to-end workflow
+- ~~Notification model is dead code~~ — Full notification system now implemented with controllers, services, routes, and automatic triggers
+- ~~No per-route role guards on frontend~~ — `RoleGuard` component now protects all routes based on user role
 
 ---
 
@@ -1275,4 +1566,7 @@ Can view their appointments, check queue position, and see consultation history.
 3. **Login as Doctor** (`arun.rao@spcms.local` / `Doctor@123`) in another browser/tab
 4. See the patient appear in the doctor's queue, click **Call**, then **Start Consultation**
 5. Add notes and **Complete** the consultation
-6. **Login as Patient** (`john.doe@example.com` / `Patient@123`) to view the consultation record
+6. Create a **Prescription** with diagnosis and medicines (or skip)
+7. **Login as Patient** (`john.doe@example.com` / `Patient@123`) to view the consultation record
+8. Check **Notifications** page to see automatic notifications (doctor assignment, queue next, prescription ready)
+9. Check **Prescriptions** page to view the prescription details

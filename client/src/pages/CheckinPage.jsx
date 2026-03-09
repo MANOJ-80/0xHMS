@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import SectionCard from '../components/SectionCard'
-import AlertBanner from '../components/AlertBanner'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { apiFetch } from '../lib/api'
 import { useNavigate } from 'react-router-dom'
+import toast from 'react-hot-toast'
 
 export default function CheckinPage() {
   const [patients, setPatients] = useState([])
@@ -18,19 +18,17 @@ export default function CheckinPage() {
     specialization: 'General Medicine',
     isWalkIn: true,
     urgencyLevel: 'normal',
-    notes: ''
+    notes: '',
   })
 
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
   const navigate = useNavigate()
 
   useEffect(() => {
     Promise.all([
       apiFetch('/patients').catch(() => ({ patients: [] })),
       apiFetch('/departments').catch(() => ({ departments: [] })),
-      apiFetch('/doctors').catch(() => ({ doctors: [] }))
+      apiFetch('/doctors').catch(() => ({ doctors: [] })),
     ]).then(([patientsData, deptsData, doctorsData]) => {
       setPatients(patientsData.patients || [])
       setDepartments(deptsData.departments || [])
@@ -55,23 +53,24 @@ export default function CheckinPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setLoading(true)
-    setError('')
-    setSuccess('')
 
+    if (!formData.patientId) { toast.error('Select a patient'); return }
+    if (!formData.departmentId) { toast.error('Select a department'); return }
+
+    setLoading(true)
     try {
       const payload = { ...formData }
       if (!payload.doctorId) delete payload.doctorId
 
       const data = await apiFetch('/checkins', {
         method: 'POST',
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       })
 
-      setSuccess(`Checked in successfully! Token: ${data.queueToken.tokenNumber}`)
-      setTimeout(() => navigate('/queue-board'), 2000)
+      toast.success(`Checked in! Token: ${data.queueToken.tokenNumber}`)
+      setTimeout(() => navigate('/queue-board'), 1500)
     } catch (err) {
-      setError(err.message)
+      toast.error(err.message)
     } finally {
       setLoading(false)
     }
@@ -80,20 +79,19 @@ export default function CheckinPage() {
   const specializations = Array.from(new Set(doctors.map(d => d.specialization).filter(Boolean)))
 
   return (
-    <SectionCard title="Front Desk Check-in" eyebrow="Walk-ins & Appointments">
-      {pageLoading ? (
-        <LoadingSpinner message="Loading check-in form..." />
-      ) : (
-        <div className="mx-auto max-w-2xl rounded-3xl bg-white/70 p-6 ring-1 ring-ink/10">
-          <AlertBanner variant="error" message={error} onDismiss={() => setError('')} />
-          <AlertBanner variant="success" message={success} onDismiss={() => setSuccess('')} />
+    <div className="space-y-6">
+      <h1 className="font-display text-2xl font-semibold">Patient Check-in</h1>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid gap-6 sm:grid-cols-2">
+      <SectionCard title="Front Desk Check-in" eyebrow="Walk-ins & appointments">
+        {pageLoading ? (
+          <LoadingSpinner message="Loading check-in form..." />
+        ) : (
+          <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-6">
+            <div className="grid gap-5 sm:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium text-ink">Patient</label>
+                <label className="block text-xs font-medium text-ink/70">Patient *</label>
                 <select
-                  className="mt-2 block w-full rounded-xl border-0 p-3 text-ink ring-1 ring-inset ring-ink/10 bg-white"
+                  className="mt-1.5 block w-full rounded-xl border-0 p-3 text-sm ring-1 ring-inset ring-ink/10 bg-white"
                   value={formData.patientId}
                   onChange={e => setFormData({ ...formData, patientId: e.target.value })}
                   required
@@ -106,9 +104,9 @@ export default function CheckinPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-ink">Department</label>
+                <label className="block text-xs font-medium text-ink/70">Department *</label>
                 <select
-                  className="mt-2 block w-full rounded-xl border-0 p-3 text-ink ring-1 ring-inset ring-ink/10 bg-white"
+                  className="mt-1.5 block w-full rounded-xl border-0 p-3 text-sm ring-1 ring-inset ring-ink/10 bg-white"
                   value={formData.departmentId}
                   onChange={e => setFormData({ ...formData, departmentId: e.target.value })}
                   required
@@ -121,9 +119,9 @@ export default function CheckinPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-ink">Specialization Needed</label>
+                <label className="block text-xs font-medium text-ink/70">Specialization</label>
                 <select
-                  className="mt-2 block w-full rounded-xl border-0 p-3 text-ink ring-1 ring-inset ring-ink/10 bg-white"
+                  className="mt-1.5 block w-full rounded-xl border-0 p-3 text-sm ring-1 ring-inset ring-ink/10 bg-white"
                   value={formData.specialization}
                   onChange={e => setFormData({ ...formData, specialization: e.target.value })}
                 >
@@ -135,9 +133,9 @@ export default function CheckinPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-ink">Preferred Doctor (Optional)</label>
+                <label className="block text-xs font-medium text-ink/70">Preferred Doctor</label>
                 <select
-                  className="mt-2 block w-full rounded-xl border-0 p-3 text-ink ring-1 ring-inset ring-ink/10 bg-white"
+                  className="mt-1.5 block w-full rounded-xl border-0 p-3 text-sm ring-1 ring-inset ring-ink/10 bg-white"
                   value={formData.doctorId}
                   onChange={e => setFormData({ ...formData, doctorId: e.target.value })}
                 >
@@ -149,11 +147,11 @@ export default function CheckinPage() {
               </div>
             </div>
 
-            <div className="grid gap-6 sm:grid-cols-2">
+            <div className="grid gap-5 sm:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium text-ink">Urgency Level</label>
+                <label className="block text-xs font-medium text-ink/70">Urgency Level</label>
                 <select
-                  className="mt-2 block w-full rounded-xl border-0 p-3 text-ink ring-1 ring-inset ring-ink/10 bg-white"
+                  className="mt-1.5 block w-full rounded-xl border-0 p-3 text-sm ring-1 ring-inset ring-ink/10 bg-white"
                   value={formData.urgencyLevel}
                   onChange={e => setFormData({ ...formData, urgencyLevel: e.target.value })}
                 >
@@ -162,42 +160,42 @@ export default function CheckinPage() {
                 </select>
               </div>
 
-              <div className="flex items-center pt-8">
+              <div className="flex items-end pb-1">
                 <label className="flex items-center gap-3">
                   <input
                     type="checkbox"
-                    className="h-5 w-5 rounded border-ink/20 text-ink focus:ring-ink"
+                    className="h-4 w-4 rounded border-ink/20 text-ink focus:ring-ink"
                     checked={formData.isWalkIn}
                     onChange={e => setFormData({ ...formData, isWalkIn: e.target.checked })}
                   />
-                  <span className="text-sm font-medium text-ink">Is Walk-in?</span>
+                  <span className="text-sm font-medium text-ink">Walk-in patient</span>
                 </label>
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-ink">Notes</label>
+              <label className="block text-xs font-medium text-ink/70">Notes</label>
               <textarea
                 rows={2}
-                className="mt-2 block w-full rounded-xl border-0 p-3 text-ink ring-1 ring-inset ring-ink/10 bg-white"
+                className="mt-1.5 block w-full rounded-xl border-0 p-3 text-sm ring-1 ring-inset ring-ink/10 bg-white"
                 value={formData.notes}
                 onChange={e => setFormData({ ...formData, notes: e.target.value })}
                 placeholder="Symptoms or special requirements..."
               />
             </div>
 
-            <div className="pt-4 flex justify-end">
+            <div className="flex justify-end pt-2">
               <button
                 type="submit"
                 disabled={loading}
-                className="rounded-full bg-ink px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-ink/90 disabled:opacity-50"
+                className="rounded-xl bg-ink px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-ink/90 disabled:opacity-50"
               >
                 {loading ? 'Checking in...' : 'Check In Patient'}
               </button>
             </div>
           </form>
-        </div>
-      )}
-    </SectionCard>
+        )}
+      </SectionCard>
+    </div>
   )
 }

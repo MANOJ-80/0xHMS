@@ -4,6 +4,7 @@ import { Patient } from '../models/Patient.js'
 import { QueueToken } from '../models/QueueToken.js'
 import { createAuditLog } from '../services/auditService.js'
 import { findBestDoctor, logAssignment } from '../services/assignmentService.js'
+import { notifyDoctorAssignment } from '../services/notificationService.js'
 import { recalculateDoctorQueue } from '../services/queueService.js'
 import { emitQueueUpdate } from '../services/socketService.js'
 import { generateCode } from '../utils/code.js'
@@ -137,6 +138,15 @@ export const createCheckin = asyncHandler(async (req, res) => {
     doctorId: queueToken.assignedDoctorId,
     patientId,
   })
+
+  // Send doctor assignment notification if a doctor was assigned (fire and forget)
+  if (queueToken.assignedDoctorId) {
+    try {
+      await notifyDoctorAssignment({ queueToken, patient, doctor: suggestedDoctor?.doctor })
+    } catch (notifyError) {
+      console.error('[Notification] Failed to send doctor assignment notification at checkin:', notifyError.message)
+    }
+  }
 
   return sendSuccess(res, 'Patient checked in successfully', { checkin, queueToken }, 201)
 })

@@ -1,5 +1,8 @@
 import { Appointment } from '../models/Appointment.js'
 import { Doctor } from '../models/Doctor.js'
+import { Patient } from '../models/Patient.js'
+import { Department } from '../models/Department.js'
+import { notifyAppointmentConfirmation, notifyCancellation } from '../services/notificationService.js'
 import { generateCode } from '../utils/code.js'
 import { ApiError } from '../utils/ApiError.js'
 import { asyncHandler } from '../utils/asyncHandler.js'
@@ -57,6 +60,18 @@ export const createAppointment = asyncHandler(async (req, res) => {
     createdBy: req.user?.sub || null,
     updatedBy: req.user?.sub || null,
   })
+
+  // Send appointment confirmation notification (fire and forget)
+  try {
+    const patient = await Patient.findById(patientId)
+    const doctor = doctorId ? await Doctor.findById(doctorId) : null
+    const department = await Department.findById(departmentId)
+    if (patient) {
+      await notifyAppointmentConfirmation({ appointment, patient, doctor, department })
+    }
+  } catch (notifyError) {
+    console.error('[Notification] Failed to send appointment confirmation:', notifyError.message)
+  }
 
   return sendSuccess(res, 'Appointment created successfully', { appointment }, 201)
 })
@@ -119,6 +134,17 @@ export const cancelAppointment = asyncHandler(async (req, res) => {
   appointment.cancellationReason = req.body.reason || 'Cancelled by user'
   appointment.updatedBy = req.user?.sub || null
   await appointment.save()
+
+  // Send cancellation notification (fire and forget)
+  try {
+    const patient = await Patient.findById(appointment.patientId)
+    const doctor = appointment.doctorId ? await Doctor.findById(appointment.doctorId) : null
+    if (patient) {
+      await notifyCancellation({ appointment, patient, doctor })
+    }
+  } catch (notifyError) {
+    console.error('[Notification] Failed to send cancellation notification:', notifyError.message)
+  }
 
   return sendSuccess(res, 'Appointment cancelled successfully', { appointment })
 })

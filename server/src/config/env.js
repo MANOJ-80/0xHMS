@@ -19,4 +19,11 @@ export const env = {
   jwtRefreshSecret: process.env.JWT_REFRESH_SECRET,
   jwtAccessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m',
   jwtRefreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
+
+  // Notification settings
+  notificationDefaultChannel: process.env.NOTIFICATION_DEFAULT_CHANNEL || 'system',
+  smsProviderEnabled: process.env.SMS_PROVIDER_ENABLED === 'true',
+  whatsappProviderEnabled: process.env.WHATSAPP_PROVIDER_ENABLED === 'true',
+  smsFromNumber: process.env.SMS_FROM_NUMBER || '',
+  whatsappFromNumber: process.env.WHATSAPP_FROM_NUMBER || '',
 }

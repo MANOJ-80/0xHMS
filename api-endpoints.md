@@ -641,27 +641,195 @@ Get consultation detail.
 
 ### `GET /notifications`
 
-List notifications.
+List notifications with optional filters.
 
 Access:
 
-- admin, receptionist, patient self for own notifications
+- admin, receptionist, doctor, patient (patients see only their own)
 
-### `POST /notifications/send`
+Query params:
 
-Send immediate notification.
+- `patientId`
+- `type`
+- `channel`
+- `status`
+
+Returns up to 100 notifications sorted by `createdAt` descending. Patient role users are automatically filtered to their own notifications via `linkedPatientId`.
+
+### `GET /notifications/:id`
+
+Get a single notification by ID with populated patient details.
 
 Access:
 
-- system service, admin
+- admin, receptionist, doctor, patient
 
-### `PATCH /notifications/:id/retry`
+### `GET /notifications/stats`
 
-Retry failed notification.
+Get today's notification statistics: total, sent, failed, pending, delivered.
 
 Access:
 
 - admin
+
+Response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "stats": { "total": 25, "sent": 20, "failed": 2, "pending": 1, "delivered": 2 }
+  }
+}
+```
+
+### `POST /notifications/send`
+
+Send a manual/ad-hoc notification to a patient.
+
+Access:
+
+- admin, receptionist
+
+Body:
+
+```json
+{
+  "patientId": "...",
+  "recipient": "+91...",
+  "message": "Your appointment has been updated",
+  "type": "general",
+  "channel": "sms",
+  "subject": "Appointment Update"
+}
+```
+
+Required fields: `patientId`, `recipient`, `message`. Optional: `type` (default `general`), `channel` (default `system`), `subject`.
+
+### `PATCH /notifications/:id/retry`
+
+Retry a failed notification. Increments `retryCount` and re-attempts delivery via the original channel. Fails if `retryCount >= maxRetries`.
+
+Access:
+
+- admin
+
+### Automatic Notifications
+
+The following notifications are sent automatically by the system (not via API endpoints):
+
+| Trigger | Type | Sent By |
+|---------|------|---------|
+| Appointment created | `appointment_confirmation` | `appointmentController` |
+| Patient checked in / assigned to doctor | `doctor_assignment` | `checkinController` |
+| Doctor calls patient (queue token called) | `queue_next` | `queueController` |
+| Token marked as missed | `missed_appointment` | `queueController` |
+| Prescription created | `prescription_ready` | `prescriptionController` |
+
+## 15. Prescription Endpoints
+
+### `GET /prescriptions`
+
+List prescriptions with optional filters.
+
+Access:
+
+- admin, doctor, receptionist, patient (patients see only their own)
+
+Query params:
+
+- `patientId`
+- `doctorId`
+- `consultationId`
+
+Returns up to 100 active prescriptions sorted by `createdAt` descending, with populated patient, doctor, department, and consultation fields.
+
+### `GET /prescriptions/:id`
+
+Get a single prescription with fully populated details (patient demographics, doctor profile, department, consultation).
+
+Access:
+
+- admin, doctor, receptionist, patient
+
+### `GET /prescriptions/patient/:patientId`
+
+Get all prescriptions for a specific patient (patient history).
+
+Access:
+
+- admin, doctor, receptionist, patient
+
+Returns up to 50 active prescriptions sorted by `createdAt` descending.
+
+### `POST /prescriptions`
+
+Create a new prescription linked to a completed consultation.
+
+Access:
+
+- doctor only
+
+Body:
+
+```json
+{
+  "consultationId": "...",
+  "diagnosis": "Upper respiratory tract infection",
+  "medicines": [
+    {
+      "medicineName": "Amoxicillin",
+      "dosage": "500mg",
+      "frequency": "Three times daily",
+      "duration": "7 days",
+      "route": "oral",
+      "instructions": "Take after meals"
+    }
+  ],
+  "treatmentNotes": "Rest and hydration advised",
+  "followUpDate": "2026-03-17",
+  "followUpInstructions": "Return if symptoms persist",
+  "doctorSignature": "Dr. Arun Rao",
+  "hospitalName": "SPCMS Hospital"
+}
+```
+
+Required fields: `consultationId`, `diagnosis`, `medicines` (at least one). Each medicine requires: `medicineName`, `dosage`, `frequency`, `duration`.
+
+Rules:
+
+- only one prescription per consultation (rejects with 409 if already exists)
+- patient, doctor, department, and appointment are derived from the consultation record
+- automatically sends a `prescription_ready` notification to the patient
+- creates an audit log entry
+
+### `PATCH /prescriptions/:id`
+
+Update an existing prescription.
+
+Access:
+
+- doctor (own prescriptions only), admin
+
+Body (all fields optional):
+
+```json
+{
+  "diagnosis": "Updated diagnosis",
+  "medicines": [...],
+  "treatmentNotes": "Updated notes",
+  "followUpDate": "2026-03-24",
+  "followUpInstructions": "Updated instructions",
+  "doctorSignature": "Updated signature"
+}
+```
+
+Rules:
+
+- doctors can only update prescriptions they created
+- admin can update any prescription
+- if `medicines` is updated, validation is re-applied (at least one, all required fields present)
+- creates an audit log entry
 
 ## 15. Reporting Endpoints
 

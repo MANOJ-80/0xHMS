@@ -12,7 +12,9 @@ import configRoutes from './routes/configRoutes.js'
 import departmentRoutes from './routes/departmentRoutes.js'
 import doctorRoutes from './routes/doctorRoutes.js'
 import healthRoutes from './routes/healthRoutes.js'
+import notificationRoutes from './routes/notificationRoutes.js'
 import patientRoutes from './routes/patientRoutes.js'
+import prescriptionRoutes from './routes/prescriptionRoutes.js'
 import queueRoutes from './routes/queueRoutes.js'
 import reportRoutes from './routes/reportRoutes.js'
 import { errorHandler } from './middleware/errorHandler.js'
@@ -62,6 +64,8 @@ export function createApp() {
   app.use('/api/v1/checkins', checkinRoutes)
   app.use('/api/v1/queue', queueRoutes)
   app.use('/api/v1/consultations', consultationRoutes)
+  app.use('/api/v1/prescriptions', prescriptionRoutes)
+  app.use('/api/v1/notifications', notificationRoutes)
   app.use('/api/v1/reports', reportRoutes)
   app.use('/api/v1/system-configs', configRoutes)
   app.use('/api/v1/audit-logs', auditRoutes)

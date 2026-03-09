@@ -44,9 +44,10 @@ The MVP should use these main collections:
 7. `queueTokens`
 8. `consultations`
 9. `notifications`
-10. `auditLogs`
-11. `systemConfigs`
-12. `doctorAssignments`
+10. `prescriptions`
+11. `auditLogs`
+12. `systemConfigs`
+13. `doctorAssignments`
 
 ## 4. Collection Designs
 
@@ -423,7 +424,7 @@ Indexes:
 
 ### 4.10 `notifications`
 
-Tracks outbound messages and delivery status.
+Tracks outbound patient notifications across multiple delivery channels with retry support.
 
 ```js
 {
@@ -431,30 +432,92 @@ Tracks outbound messages and delivery status.
   patientId: ObjectId,
   appointmentId: ObjectId | null,
   queueTokenId: ObjectId | null,
-  type: 'appointment_confirmation' | 'appointment_reminder' | 'queue_alert' | 'doctor_assignment' | 'cancellation' | 'reschedule' | 'general',
-  channel: 'sms' | 'email' | 'system',
+  consultationId: ObjectId | null,
+  prescriptionId: ObjectId | null,
+  type: 'appointment_confirmation' | 'appointment_reminder' | 'queue_alert' | 'queue_next' | 'doctor_assignment' | 'cancellation' | 'reschedule' | 'missed_appointment' | 'prescription_ready' | 'general',
+  channel: 'sms' | 'whatsapp' | 'email' | 'system',
   recipient: String,
-  subject: String | null,
+  subject: String,
   message: String,
   status: 'pending' | 'sent' | 'failed' | 'delivered',
   providerMessageId: String | null,
   errorMessage: String | null,
   scheduledFor: Date | null,
   sentAt: Date | null,
+  deliveredAt: Date | null,
+  retryCount: Number,
+  maxRetries: Number,
   createdAt: Date,
   updatedAt: Date
 }
 ```
 
+Notes:
+
+- notifications are created automatically at key workflow points (appointment confirmation, doctor assignment, queue called, missed appointment, prescription ready)
+- `channel` determines the delivery method; `system` notifications are stored in the database only for in-app display
+- `retryCount` and `maxRetries` (default 3) support automatic and manual retry of failed notifications
+- the `prescriptionId` and `consultationId` references enable linking notifications to specific clinical events
+- admin and receptionist users can send manual notifications via the `POST /notifications/send` endpoint
+
 Indexes:
 
-- index: `patientId`
-- index: `appointmentId`
-- index: `queueTokenId`
-- index: `status`
+- compound: `{ patientId: 1, createdAt: -1 }`
 - compound: `{ status: 1, scheduledFor: 1 }`
+- index: `appointmentId`
+- compound: `{ type: 1, createdAt: -1 }`
 
-### 4.11 `auditLogs`
+### 4.11 `prescriptions`
+
+Stores digital doctor prescriptions linked to consultations.
+
+```js
+{
+  _id: ObjectId,
+  prescriptionNumber: String,
+  patientId: ObjectId,
+  doctorId: ObjectId,
+  consultationId: ObjectId,
+  appointmentId: ObjectId | null,
+  departmentId: ObjectId,
+  diagnosis: String,
+  medicines: [
+    {
+      medicineName: String,
+      dosage: String,
+      frequency: String,
+      duration: String,
+      route: String,
+      instructions: String
+    }
+  ],
+  treatmentNotes: String,
+  followUpDate: Date | null,
+  followUpInstructions: String,
+  doctorSignature: String,
+  hospitalName: String,
+  isActive: Boolean,
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+Notes:
+
+- one prescription per consultation is enforced at the application level (duplicate `consultationId` is rejected)
+- `medicines` is an embedded array; each item requires `medicineName`, `dosage`, `frequency`, and `duration`; `route` defaults to `oral`
+- `prescriptionNumber` uses the format `RX-{randomCode}` (e.g., `RX-K7M2P1`)
+- creating a prescription automatically triggers a `prescription_ready` notification to the patient
+- only the doctor who created the prescription (or an admin) can update it
+
+Indexes:
+
+- unique: `prescriptionNumber`
+- compound: `{ patientId: 1, createdAt: -1 }`
+- compound: `{ doctorId: 1, createdAt: -1 }`
+- index: `consultationId`
+
+### 4.12 `auditLogs`
 
 Required for traceability, especially for queue changes and urgency overrides.
 
@@ -481,7 +544,7 @@ Indexes:
 - index: `createdAt`
 - compound: `{ entityType: 1, entityId: 1, createdAt: -1 }`
 
-### 4.12 `systemConfigs`
+### 4.13 `systemConfigs`
 
 Central place for configurable queue and assignment rules.
 
@@ -521,6 +584,14 @@ Indexes:
 - `queueTokens.checkinId -> checkins._id`
 - `queueTokens.assignedDoctorId -> doctors._id`
 - `consultations.queueTokenId -> queueTokens._id`
+- `prescriptions.consultationId -> consultations._id`
+- `prescriptions.patientId -> patients._id`
+- `prescriptions.doctorId -> doctors._id`
+- `prescriptions.departmentId -> departments._id`
+- `notifications.patientId -> patients._id`
+- `notifications.appointmentId -> appointments._id`
+- `notifications.consultationId -> consultations._id`
+- `notifications.prescriptionId -> prescriptions._id`
 - `doctorAssignments.queueTokenId -> queueTokens._id`
 
 ## 6. Derived Data and Calculation Strategy
@@ -593,6 +664,7 @@ server/
       Checkin.js
       QueueToken.js
       Consultation.js
+      Prescription.js
       DoctorAssignment.js
       Notification.js
       AuditLog.js
@@ -661,7 +733,7 @@ The schema can later be extended with:
 - room scheduling
 - EMR integration references
 - payment status references
-- file attachments and prescriptions
+- file attachments for prescriptions
 - predictive wait-time models
 
 ## 13. Recommended Implementation Order
@@ -674,9 +746,10 @@ The schema can later be extended with:
 6. `checkins`
 7. `queueTokens`
 8. `consultations`
-9. `doctorAssignments`
-10. `notifications`
-11. `auditLogs`
-12. `systemConfigs`
+9. `prescriptions`
+10. `doctorAssignments`
+11. `notifications`
+12. `auditLogs`
+13. `systemConfigs`
 
-This order supports the booking flow first, then check-in, queueing, consultation, and reporting.
+This order supports the booking flow first, then check-in, queueing, consultation, prescription, and reporting.

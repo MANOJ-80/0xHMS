@@ -115,6 +115,10 @@ async function seed() {
     { key: 'queue.noShowGraceMinutes', value: 15, description: 'Minutes before a checked-in patient is marked missed.' },
     { key: 'assignment.reassignThresholdMinutes', value: 15, description: 'Minimum wait reduction required to reassign a patient.' },
     { key: 'hospital.defaultSlotMinutes', value: 15, description: 'Default doctor slot duration in minutes.' },
+    { key: 'notification.defaultChannel', value: 'system', description: 'Default notification channel: system | sms | whatsapp.' },
+    { key: 'notification.maxRetries', value: 3, description: 'Maximum retry attempts for failed notifications.' },
+    { key: 'notification.smsEnabled', value: false, description: 'Whether SMS delivery is enabled.' },
+    { key: 'notification.whatsappEnabled', value: false, description: 'Whether WhatsApp delivery is enabled.' },
   ]
 
   for (const config of defaultConfigs) {

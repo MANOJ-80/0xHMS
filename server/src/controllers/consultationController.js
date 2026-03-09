@@ -1,6 +1,7 @@
 import { Consultation } from '../models/Consultation.js'
 import { Appointment } from '../models/Appointment.js'
 import { Doctor } from '../models/Doctor.js'
+import { Prescription } from '../models/Prescription.js'
 import { QueueToken } from '../models/QueueToken.js'
 import { createAuditLog } from '../services/auditService.js'
 import { recalculateDoctorQueue } from '../services/queueService.js'
@@ -132,5 +133,12 @@ export const completeConsultation = asyncHandler(async (req, res) => {
     patientId: consultation.patientId,
   })
 
-  return sendSuccess(res, 'Consultation completed successfully', { consultation })
+  // Check if a prescription was already created for this consultation
+  const prescription = await Prescription.findOne({ consultationId: consultation._id })
+
+  return sendSuccess(res, 'Consultation completed successfully', {
+    consultation,
+    prescription: prescription || null,
+    prescriptionPending: !prescription,
+  })
 })

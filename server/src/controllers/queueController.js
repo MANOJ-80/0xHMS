@@ -1,6 +1,9 @@
 import { QueueToken } from '../models/QueueToken.js'
+import { Patient } from '../models/Patient.js'
+import { Doctor } from '../models/Doctor.js'
 import { createAuditLog } from '../services/auditService.js'
 import { assignQueueTokenToDoctor, findBestDoctor } from '../services/assignmentService.js'
+import { notifyQueueNext, notifyMissedAppointment, notifyDoctorAssignment } from '../services/notificationService.js'
 import { recalculateDoctorQueue } from '../services/queueService.js'
 import { emitQueueUpdate } from '../services/socketService.js'
 import { ApiError } from '../utils/ApiError.js'
@@ -60,6 +63,17 @@ export const assignQueueToken = asyncHandler(async (req, res) => {
     patientId: queueToken.patientId,
   })
 
+  // Send doctor assignment notification (fire and forget)
+  try {
+    const patient = await Patient.findById(queueToken.patientId)
+    const doctor = await Doctor.findById(queueToken.assignedDoctorId)
+    if (patient) {
+      await notifyDoctorAssignment({ queueToken, patient, doctor })
+    }
+  } catch (notifyError) {
+    console.error('[Notification] Failed to send doctor assignment notification:', notifyError.message)
+  }
+
   return sendSuccess(res, 'Queue token assigned successfully', { queueToken })
 })
 
@@ -99,6 +113,16 @@ export const autoAssignQueueToken = asyncHandler(async (req, res) => {
     patientId: updated.patientId,
   })
 
+  // Send doctor assignment notification (fire and forget)
+  try {
+    const patient = await Patient.findById(updated.patientId)
+    if (patient) {
+      await notifyDoctorAssignment({ queueToken: updated, patient, doctor: bestDoctor.doctor })
+    }
+  } catch (notifyError) {
+    console.error('[Notification] Failed to send auto-assignment notification:', notifyError.message)
+  }
+
   return sendSuccess(res, 'Queue token auto-assigned successfully', { queueToken: updated })
 })
 
@@ -118,6 +142,17 @@ export const markQueueTokenCalled = asyncHandler(async (req, res) => {
     doctorId: queueToken.assignedDoctorId,
     patientId: queueToken.patientId,
   })
+
+  // Send "you are next" notification (fire and forget)
+  try {
+    const patient = await Patient.findById(queueToken.patientId)
+    const doctor = queueToken.assignedDoctorId ? await Doctor.findById(queueToken.assignedDoctorId) : null
+    if (patient) {
+      await notifyQueueNext({ queueToken, patient, doctor })
+    }
+  } catch (notifyError) {
+    console.error('[Notification] Failed to send queue-next notification:', notifyError.message)
+  }
 
   return sendSuccess(res, 'Queue token marked as called', { queueToken })
 })
@@ -142,6 +177,17 @@ export const markQueueTokenMissed = asyncHandler(async (req, res) => {
     doctorId: queueToken.assignedDoctorId,
     patientId: queueToken.patientId,
   })
+
+  // Send missed appointment notification (fire and forget)
+  try {
+    const patient = await Patient.findById(queueToken.patientId)
+    const doctor = queueToken.assignedDoctorId ? await Doctor.findById(queueToken.assignedDoctorId) : null
+    if (patient) {
+      await notifyMissedAppointment({ queueToken, patient, doctor })
+    }
+  } catch (notifyError) {
+    console.error('[Notification] Failed to send missed appointment notification:', notifyError.message)
+  }
 
   return sendSuccess(res, 'Queue token marked as missed', { queueToken })
 })
