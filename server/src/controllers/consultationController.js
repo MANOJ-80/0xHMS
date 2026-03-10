@@ -1,5 +1,6 @@
 import { Consultation } from '../models/Consultation.js'
 import { Appointment } from '../models/Appointment.js'
+import { Checkin } from '../models/Checkin.js'
 import { Doctor } from '../models/Doctor.js'
 import { Prescription } from '../models/Prescription.js'
 import { QueueToken } from '../models/QueueToken.js'
@@ -132,6 +133,17 @@ export const completeConsultation = asyncHandler(async (req, res) => {
     actualConsultationEndAt: new Date(),
     isActive: false,
   })
+
+  // Mark the check-in as completed so the patient can check in again later
+  if (consultation.checkinId) {
+    await Checkin.findByIdAndUpdate(consultation.checkinId, { status: 'completed' })
+  } else {
+    // Fallback: find checkin via queueToken
+    const qt = await QueueToken.findById(consultation.queueTokenId)
+    if (qt?.checkinId) {
+      await Checkin.findByIdAndUpdate(qt.checkinId, { status: 'completed' })
+    }
+  }
 
   await Doctor.findByIdAndUpdate(consultation.doctorId, {
     availabilityStatus: 'available',

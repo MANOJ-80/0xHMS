@@ -1,4 +1,5 @@
 import { QueueToken } from '../models/QueueToken.js'
+import { Checkin } from '../models/Checkin.js'
 import { Patient } from '../models/Patient.js'
 import { Doctor } from '../models/Doctor.js'
 import { createAuditLog } from '../services/auditService.js'
@@ -175,6 +176,11 @@ export const markQueueTokenMissed = asyncHandler(async (req, res) => {
   queueToken.queueStatus = 'missed'
   queueToken.isActive = false
   await queueToken.save()
+
+  // Mark the check-in as expired so the patient can check in again
+  if (queueToken.checkinId) {
+    await Checkin.findByIdAndUpdate(queueToken.checkinId, { status: 'expired' })
+  }
 
   if (queueToken.assignedDoctorId) {
     await recalculateDoctorQueue(queueToken.assignedDoctorId)

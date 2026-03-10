@@ -11,7 +11,7 @@ const checkinSchema = new mongoose.Schema(
     checkinMethod: { type: String, enum: ['reception', 'kiosk', 'qr', 'self_service'], default: 'reception' },
     isWalkIn: { type: Boolean, default: false },
     urgencyLevel: { type: String, enum: ['normal', 'urgent'], default: 'normal' },
-    status: { type: String, enum: ['checked_in', 'queued', 'cancelled', 'expired'], default: 'checked_in' },
+    status: { type: String, enum: ['checked_in', 'queued', 'completed', 'cancelled', 'expired'], default: 'checked_in' },
     handledBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     notes: { type: String, default: '' },
   },
