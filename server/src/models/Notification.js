@@ -15,6 +15,7 @@ const notificationSchema = new mongoose.Schema(
         'queue_alert',
         'queue_next',
         'doctor_assignment',
+        'doctor_reassignment',
         'cancellation',
         'reschedule',
         'missed_appointment',

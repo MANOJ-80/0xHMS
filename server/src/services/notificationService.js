@@ -65,7 +65,17 @@ export function buildMissedAppointmentMessage({ patientName, doctorName }) {
   )
 }
 
-export function buildDoctorAssignmentMessage({ patientName, doctorName, consultationRoom }) {
+export function buildDoctorAssignmentMessage({ patientName, doctorName, consultationRoom, isReassignment, originalDoctorName, reassignmentReason }) {
+  if (isReassignment && originalDoctorName) {
+    return (
+      `Hello ${patientName},\n` +
+      `Important update: Your appointment was originally with ${originalDoctorName}, ` +
+      `but you have been reassigned to ${doctorName}.\n` +
+      (reassignmentReason ? `Reason: ${reassignmentReason}\n` : '') +
+      `Consultation Room: ${consultationRoom || 'To be announced'}.\n` +
+      `We apologize for the change. Please contact reception if you have any concerns.`
+    )
+  }
   return (
     `Hello ${patientName},\n` +
     `You have been assigned to ${doctorName}.\n` +
@@ -384,8 +394,10 @@ export async function notifyMissedAppointment({ queueToken, patient, doctor }) {
 
 /**
  * Send doctor assignment notification.
+ * If a reassignment is detected (different doctor than originally booked),
+ * the SMS explains the change and reason to the patient.
  */
-export async function notifyDoctorAssignment({ queueToken, patient, doctor }) {
+export async function notifyDoctorAssignment({ queueToken, patient, doctor, isReassignment = false, originalDoctorName = null, reassignmentReason = null }) {
   const patientName = patient?.fullName || 'Patient'
   const doctorName = doctor?.fullName || 'your doctor'
   const channel = resolveChannel(patient)
@@ -395,16 +407,19 @@ export async function notifyDoctorAssignment({ queueToken, patient, doctor }) {
     patientName,
     doctorName,
     consultationRoom: doctor?.consultationRoom,
+    isReassignment,
+    originalDoctorName,
+    reassignmentReason,
   })
 
   return sendNotification({
     patientId: patient._id,
     queueTokenId: queueToken._id,
     appointmentId: queueToken.appointmentId,
-    type: 'doctor_assignment',
+    type: isReassignment ? 'doctor_reassignment' : 'doctor_assignment',
     channel,
     recipient,
-    subject: 'Doctor Assigned',
+    subject: isReassignment ? 'Doctor Reassigned' : 'Doctor Assigned',
     message,
   })
 }

@@ -1,5 +1,6 @@
 import { Appointment } from '../models/Appointment.js'
 import { Checkin } from '../models/Checkin.js'
+import { Doctor } from '../models/Doctor.js'
 import { Patient } from '../models/Patient.js'
 import { QueueToken } from '../models/QueueToken.js'
 import { createAuditLog } from '../services/auditService.js'
@@ -41,6 +42,7 @@ export const createCheckin = asyncHandler(async (req, res) => {
     isWalkIn,
     urgencyLevel = 'normal',
     notes = '',
+    reassignmentReason = '',
   } = req.body
 
   const appointment = appointmentId ? await Appointment.findById(appointmentId) : null
@@ -151,9 +153,40 @@ export const createCheckin = asyncHandler(async (req, res) => {
     patientId,
   })
 
+  // --- Detect doctor reassignment ---
+  // If the appointment had an originally requested doctor and the receptionist assigned a different one,
+  // this is a reassignment. We need to notify the patient with context about the change.
+  let isReassignment = false
+  let originalDoctorName = null
+
+  if (appointment && appointment.doctorId) {
+    const originalDoctorIdStr = appointment.doctorId.toString()
+    const resolvedDoctorIdStr = doctorResult.doctor._id.toString()
+
+    if (originalDoctorIdStr !== resolvedDoctorIdStr) {
+      isReassignment = true
+
+      // Load the original doctor's name for the notification message
+      const originalDoctor = await Doctor.findById(appointment.doctorId).select('fullName')
+      originalDoctorName = originalDoctor?.fullName || 'your originally requested doctor'
+
+      // Update the appointment record to track the reassignment
+      appointment.reassignedDoctorId = doctorResult.doctor._id
+      await appointment.save()
+    }
+  }
+
   // Send doctor assignment notification (fire and forget)
+  // If reassigned, the SMS explains which doctor was originally requested and why the change was made.
   try {
-    await notifyDoctorAssignment({ queueToken, patient, doctor: doctorResult.doctor })
+    await notifyDoctorAssignment({
+      queueToken,
+      patient,
+      doctor: doctorResult.doctor,
+      isReassignment,
+      originalDoctorName,
+      reassignmentReason: isReassignment ? (reassignmentReason || null) : null,
+    })
   } catch (notifyError) {
     console.error('[Notification] Failed to send doctor assignment notification at checkin:', notifyError.message)
   }

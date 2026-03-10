@@ -19,7 +19,11 @@ export default function CheckinPage() {
     isWalkIn: false,
     urgencyLevel: 'normal',
     notes: '',
+    reassignmentReason: '',
   })
+
+  // Track the original doctor from the linked appointment (if any)
+  const [appointmentDoctorId, setAppointmentDoctorId] = useState('')
 
   const [loading, setLoading] = useState(false)
 
@@ -50,16 +54,20 @@ export default function CheckinPage() {
   const handleAppointmentSelect = (appointmentId) => {
     const apt = appointments.find(a => a._id === appointmentId)
     if (apt) {
+      const originalDoctor = apt.doctorId?._id || apt.doctorId || ''
+      setAppointmentDoctorId(originalDoctor)
       setFormData(prev => ({
         ...prev,
         appointmentId,
         patientId: apt.patientId?._id || apt.patientId || prev.patientId,
         departmentId: apt.departmentId?._id || apt.departmentId || prev.departmentId,
-        doctorId: apt.doctorId?._id || apt.doctorId || prev.doctorId,
+        doctorId: originalDoctor || prev.doctorId,
         isWalkIn: false,
+        reassignmentReason: '',
       }))
     } else {
-      setFormData(prev => ({ ...prev, appointmentId: '' }))
+      setAppointmentDoctorId('')
+      setFormData(prev => ({ ...prev, appointmentId: '', reassignmentReason: '' }))
     }
   }
 
@@ -85,6 +93,11 @@ export default function CheckinPage() {
         payload.appointmentId = formData.appointmentId
       }
 
+      // Include reassignment reason if the doctor was changed from the appointment's original
+      if (isDoctorReassigned && formData.reassignmentReason.trim()) {
+        payload.reassignmentReason = formData.reassignmentReason.trim()
+      }
+
       const data = await apiFetch('/checkins', {
         method: 'POST',
         body: JSON.stringify(payload),
@@ -105,7 +118,9 @@ export default function CheckinPage() {
         isWalkIn: false,
         urgencyLevel: 'normal',
         notes: '',
+        reassignmentReason: '',
       }))
+      setAppointmentDoctorId('')
 
       // Refresh appointments list
       apiFetch('/appointments').then(aptData => {
@@ -117,6 +132,16 @@ export default function CheckinPage() {
       setLoading(false)
     }
   }
+
+  // Detect if the receptionist has changed the doctor from the appointment's original
+  const isDoctorReassigned = Boolean(
+    formData.appointmentId && appointmentDoctorId && formData.doctorId &&
+    formData.doctorId !== appointmentDoctorId
+  )
+
+  const appointmentOriginalDoctor = isDoctorReassigned
+    ? doctors.find(d => d._id === appointmentDoctorId)
+    : null
 
   // Filter doctors by department if one is selected
   const filteredDoctors = formData.departmentId
@@ -214,6 +239,28 @@ export default function CheckinPage() {
                 <p className="mt-1 text-[10px] text-ink/40">
                   Only the assigned doctor will be able to see and manage this patient.
                 </p>
+
+                {isDoctorReassigned && (
+                  <div className="mt-3 rounded-lg border border-coral/30 bg-coral/5 p-3">
+                    <p className="text-xs font-semibold text-coral">
+                      Doctor reassignment detected
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-ink/60">
+                      Originally booked with Dr. {appointmentOriginalDoctor?.fullName || 'Unknown'}. The patient will be
+                      notified about this change via SMS.
+                    </p>
+                    <label className="mt-2 block text-xs font-medium text-ink/70">
+                      Reason for reassignment
+                    </label>
+                    <textarea
+                      rows={2}
+                      className="mt-1 block w-full rounded-lg border-0 p-2.5 text-sm ring-1 ring-inset ring-coral/20 bg-white"
+                      value={formData.reassignmentReason}
+                      onChange={e => setFormData({ ...formData, reassignmentReason: e.target.value })}
+                      placeholder="e.g. Doctor on leave, schedule conflict, specialist referral..."
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="grid gap-5 sm:grid-cols-2">

@@ -65,6 +65,13 @@ JWT_ACCESS_SECRET=your-access-secret
 JWT_REFRESH_SECRET=your-refresh-secret
 JWT_ACCESS_EXPIRES_IN=15m
 JWT_REFRESH_EXPIRES_IN=7d
+
+# SMS Notifications (Twilio)
+SMS_PROVIDER_ENABLED=false
+TWILIO_ACCOUNT_SID=your-twilio-account-sid
+TWILIO_AUTH_TOKEN=your-twilio-auth-token
+TWILIO_FROM_NUMBER=+1xxxxxxxxxx
+NOTIFICATION_DEFAULT_CHANNEL=sms
 ```
 
 ### Seed the Database
@@ -206,8 +213,10 @@ HospitalManagement/
         │   └── Pagination.jsx    # Reusable pagination bar with page numbers
         └── pages/
             ├── LoginPage.jsx              # Login form with role-based redirect
+            ├── RegisterPage.jsx           # Patient self-registration form
+            ├── ProfilePage.jsx            # Profile management for all roles
             ├── DashboardPage.jsx          # Admin/receptionist overview with live data
-            ├── CheckinPage.jsx            # Front desk check-in workflow
+            ├── CheckinPage.jsx            # Front desk check-in with reassignment detection
             ├── AppointmentsPage.jsx       # Appointment booking & management
             ├── QueueBoardPage.jsx         # Real-time queue display board
             ├── PatientsPage.jsx           # Patient directory with search
@@ -232,6 +241,11 @@ HospitalManagement/
 | `JWT_REFRESH_SECRET` | **Yes** | - | Secret for signing refresh tokens |
 | `JWT_ACCESS_EXPIRES_IN` | No | `15m` | Access token TTL |
 | `JWT_REFRESH_EXPIRES_IN` | No | `7d` | Refresh token TTL |
+| `SMS_PROVIDER_ENABLED` | No | `false` | Enable real SMS delivery via Twilio |
+| `TWILIO_ACCOUNT_SID` | No | - | Twilio Account SID (required if SMS enabled) |
+| `TWILIO_AUTH_TOKEN` | No | - | Twilio Auth Token (required if SMS enabled) |
+| `TWILIO_FROM_NUMBER` | No | - | Twilio "From" phone number in E.164 format (required if SMS enabled) |
+| `NOTIFICATION_DEFAULT_CHANNEL` | No | `sms` | Default notification channel (`sms`, `system`, `whatsapp`) |
 
 The frontend uses one optional env var:
 
@@ -493,6 +507,7 @@ Notification ──N:1──> Patient; optional refs to Appointment, QueueToken,
 | `status` | String | `scheduled` \| `checked_in` \| `cancelled` \| `rescheduled` \| `no_show` \| `completed` |
 | `bookingSource` | String | `patient_portal` \| `receptionist` \| `admin` |
 | `preferredDoctorId` | ObjectId -> Doctor | Optional |
+| `reassignedDoctorId` | ObjectId -> Doctor | Set when a different doctor is assigned at check-in |
 | `cancellationReason` | String | Set on cancel |
 
 #### Checkin
@@ -508,7 +523,7 @@ Notification ──N:1──> Patient; optional refs to Appointment, QueueToken,
 | `checkinMethod` | String | `reception` \| `kiosk` \| `qr` \| `self_service` |
 | `isWalkIn` | Boolean | Default `false` |
 | `urgencyLevel` | String | `normal` \| `urgent` |
-| `status` | String | `checked_in` \| `queued` \| `cancelled` \| `expired` |
+| `status` | String | `checked_in` \| `queued` \| `cancelled` \| `expired` \| `completed` |
 | `handledBy` | ObjectId -> User | Staff who handled check-in |
 
 #### QueueToken
@@ -589,7 +604,7 @@ Notification ──N:1──> Patient; optional refs to Appointment, QueueToken,
 | `queueTokenId` | ObjectId -> QueueToken | Optional |
 | `consultationId` | ObjectId -> Consultation | Optional |
 | `prescriptionId` | ObjectId -> Prescription | Optional |
-| `type` | String | `appointment_confirmation` \| `appointment_reminder` \| `queue_alert` \| `queue_next` \| `doctor_assignment` \| `cancellation` \| `reschedule` \| `missed_appointment` \| `prescription_ready` \| `general` |
+| `type` | String | `appointment_confirmation` \| `appointment_reminder` \| `queue_alert` \| `queue_next` \| `doctor_assignment` \| `doctor_reassignment` \| `cancellation` \| `reschedule` \| `missed_appointment` \| `prescription_ready` \| `general` |
 | `channel` | String | `sms` \| `whatsapp` \| `email` \| `system` |
 | `recipient` | String | Required (phone, email, or `system`) |
 | `subject` | String | Notification subject |
@@ -653,9 +668,11 @@ Base URL: `http://localhost:5000/api/v1`
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/auth/register-patient` | None | Register a new patient account |
+| POST | `/auth/register-patient` | None | Register a new patient account (name, email, phone, password, DOB, gender) |
 | POST | `/auth/login` | None | Login, returns JWT tokens |
 | GET | `/auth/me` | Bearer | Get current user profile |
+| GET | `/auth/profile` | Bearer | Get detailed profile (includes linked patient/doctor data) |
+| PATCH | `/auth/profile` | Bearer | Update profile (name, phone, address, emergency contact) |
 
 **POST `/auth/login` request:**
 ```json
@@ -741,13 +758,15 @@ Base URL: `http://localhost:5000/api/v1`
 {
   "patientId": "...",
   "departmentId": "...",
-  "specialization": "General Medicine",
+  "doctorId": "...",
   "urgencyLevel": "normal",
   "isWalkIn": true,
-  "preferredDoctorId": "...",
-  "notes": "Optional notes"
+  "notes": "Optional notes",
+  "reassignmentReason": "Doctor on leave (optional — only when assigning a different doctor than originally booked)"
 }
 ```
+
+**Doctor assignment is mandatory.** The receptionist must explicitly choose a doctor at check-in. If the assigned doctor differs from the appointment's original doctor, the system detects a reassignment and sends a `doctor_reassignment` SMS notification to the patient explaining the change.
 
 **Check-in creates three records atomically:**
 1. `Checkin` record
@@ -902,14 +921,16 @@ All controllers use `socketService.emitQueueUpdate(req, { departmentId, doctorId
 | Path | Page | Roles | Description |
 |------|------|-------|-------------|
 | `/login` | LoginPage | Unauthenticated | Email/password login |
+| `/register` | RegisterPage | Unauthenticated | Patient self-registration (name, email, phone, password, DOB, gender) |
 | `/` | DashboardPage | admin, receptionist | Admin dashboard with live data |
-| `/checkin` | CheckinPage | admin, receptionist | Walk-in and appointment check-in |
+| `/checkin` | CheckinPage | admin, receptionist | Walk-in and appointment check-in with doctor reassignment detection |
 | `/appointments` | AppointmentsPage | admin, receptionist, doctor, patient | Appointment booking and management |
 | `/queue-board` | QueueBoardPage | All authenticated | Real-time queue display |
 | `/patients` | PatientsPage | admin, receptionist | Patient directory with search |
 | `/doctors` | DoctorsPage | admin, receptionist | Doctor roster with availability filters |
 | `/notifications` | NotificationsPage | All authenticated | Notification center with filters |
 | `/prescriptions` | PrescriptionsPage | All authenticated | Prescription viewer |
+| `/profile` | ProfilePage | All authenticated | View and edit personal profile (name, phone, address, emergency contact) |
 | `/doctor-dashboard` | DoctorDashboardPage | doctor | Consultation + prescription workflow |
 | `/patient-dashboard` | PatientDashboardPage | patient | Self-service portal |
 
@@ -949,7 +970,7 @@ Login form with email and password. Displays brand icon. Uses `react-hot-toast` 
 - Admin view includes doctor availability breakdown
 
 #### CheckinPage
-Front desk workflow. Form with: patient selector, department, specialization (populated from doctors in selected department), optional doctor preference, urgency level toggle, walk-in checkbox, notes. Uses toast notifications for success/error feedback. On success, displays the generated queue token number.
+Front desk workflow. Form with: patient selector, department, mandatory doctor assignment, urgency level toggle, walk-in checkbox, notes, and optional link to a scheduled appointment. When the receptionist assigns a different doctor than the one originally booked in the appointment, a "Doctor reassignment detected" banner appears with a text field for the reassignment reason. The patient is notified via SMS about the change. On success, displays the generated queue token number.
 
 #### AppointmentsPage
 Two-column layout. Left: booking form with client-side validation (patient, department, doctor, date, time). Right: appointments table with status badges, cancel buttons (using `ConfirmModal`), and pagination. Uses toast notifications for all user feedback.
@@ -1199,6 +1220,7 @@ The notification system provides multi-channel patient communication with plugga
 |------|-------------|-------------|
 | `appointment_confirmation` | Appointment creation | Confirms booking details with date, time, and doctor |
 | `doctor_assignment` | Check-in / queue assignment | Informs patient of assigned doctor and consultation room |
+| `doctor_reassignment` | Check-in with different doctor | Explains the doctor change, original doctor, and reason for reassignment |
 | `queue_alert` | Queue position update | Provides queue position and estimated wait time |
 | `queue_next` | Doctor calls patient | Notifies patient they are next and should proceed to room |
 | `missed_appointment` | Token marked as missed | Informs patient their slot was skipped |
@@ -1211,11 +1233,11 @@ The notification system provides multi-channel patient communication with plugga
 | Channel | Status | Description |
 |---------|--------|-------------|
 | `system` | Active | In-app notifications (stored in DB, displayed in Notification Center) |
-| `sms` | Mock | SMS via provider (Twilio/MSG91 integration point ready) |
+| `sms` | Active | SMS via Twilio (configurable via environment variables; falls back to console logging when disabled) |
 | `whatsapp` | Mock | WhatsApp Business API integration point ready |
 | `email` | Planned | Email provider integration point |
 
-SMS and WhatsApp channels currently log to console in development. Replace the mock functions in `notificationService.js` with actual provider API calls for production.
+SMS delivery uses the Twilio REST API. Configure `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_FROM_NUMBER` in your `.env` file and set `SMS_PROVIDER_ENABLED=true` to enable real SMS delivery. When disabled, messages are logged to the console.
 
 ### Retry Logic
 
@@ -1225,10 +1247,19 @@ Failed notifications can be retried up to `maxRetries` (default 3) times via the
 
 Notifications are sent automatically at key points in the consultation workflow:
 - **Appointment booked** -> `appointment_confirmation`
-- **Patient checked in** -> `doctor_assignment`
+- **Patient checked in** -> `doctor_assignment` (or `doctor_reassignment` if a different doctor is assigned than originally booked)
 - **Doctor calls patient** -> `queue_next`
 - **Patient misses slot** -> `missed_appointment`
 - **Prescription created** -> `prescription_ready`
+
+### Doctor Reassignment Notifications
+
+When a receptionist checks in a patient and assigns a different doctor than the one originally booked in the appointment, the system automatically detects the mismatch and sends a `doctor_reassignment` SMS. The message includes:
+- The name of the originally requested doctor
+- The name of the newly assigned doctor
+- The reason for the change (if provided by the receptionist)
+
+The `Appointment` record is also updated with `reassignedDoctorId` to track the change.
 
 ---
 
@@ -1339,7 +1370,7 @@ These items are identified but not yet implemented:
 
 5. **No refresh token rotation endpoint** — The backend signs refresh tokens but there's no `/auth/refresh` endpoint to exchange them.
 
-6. **SMS/WhatsApp providers are mocked** — Notification channels log to console. Production deployment requires integrating actual SMS (Twilio, MSG91) and WhatsApp Business API providers.
+6. **WhatsApp provider is mocked** — WhatsApp channel logs to console. Production deployment requires integrating the WhatsApp Business API.
 
 7. **Single department seeded** — Only the OPD department exists in seed data. Multi-department workflows are supported by the schema but untested.
 
@@ -1348,6 +1379,9 @@ These items are identified but not yet implemented:
 - ~~No test suite~~ — 30 integration tests now covering notifications, prescriptions, and end-to-end workflow
 - ~~Notification model is dead code~~ — Full notification system now implemented with controllers, services, routes, and automatic triggers
 - ~~No per-route role guards on frontend~~ — `RoleGuard` component now protects all routes based on user role
+- ~~SMS provider is mocked~~ — Twilio SMS integration now active with real delivery support
+- ~~No patient self-registration~~ — Patients can register at `/register` with phone number (required for SMS notifications)
+- ~~No profile management~~ — All roles can view and edit their profile at `/profile`
 
 ---
 
@@ -1465,6 +1499,11 @@ npm run seed --workspace server
 | `NODE_ENV` | No | `development` | `production` recommended for deployment |
 | `JWT_ACCESS_EXPIRES_IN` | No | `15m` | Access token TTL |
 | `JWT_REFRESH_EXPIRES_IN` | No | `7d` | Refresh token TTL |
+| `SMS_PROVIDER_ENABLED` | No | `false` | Enable Twilio SMS delivery |
+| `TWILIO_ACCOUNT_SID` | No | - | Twilio Account SID |
+| `TWILIO_AUTH_TOKEN` | No | - | Twilio Auth Token |
+| `TWILIO_FROM_NUMBER` | No | - | Twilio "From" number (E.164 format) |
+| `NOTIFICATION_DEFAULT_CHANNEL` | No | `sms` | Default notification channel |
 
 #### Frontend (Vercel Project — Root: `client/`)
 
