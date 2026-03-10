@@ -88,7 +88,6 @@ function getNavItems(role) {
   if (role === 'doctor') {
     return [
       { to: '/doctor-dashboard', label: 'Dashboard', icon: icons.dashboard },
-      { to: '/appointments', label: 'Appointments', icon: icons.appointments },
       { to: '/prescriptions', label: 'Prescriptions', icon: icons.prescriptions },
       { to: '/notifications', label: 'Notifications', icon: icons.notifications },
     ]
@@ -240,7 +239,7 @@ export default function App() {
                 {/* Admin/Receptionist */}
                 <Route path="/" element={<RoleGuard roles={['admin', 'receptionist']}><DashboardPage /></RoleGuard>} />
                 <Route path="/checkin" element={<RoleGuard roles={['admin', 'receptionist']}><CheckinPage /></RoleGuard>} />
-                <Route path="/appointments" element={<RoleGuard roles={['admin', 'receptionist', 'doctor']}><AppointmentsPage /></RoleGuard>} />
+                <Route path="/appointments" element={<RoleGuard roles={['admin', 'receptionist']}><AppointmentsPage /></RoleGuard>} />
                 <Route path="/patients" element={<RoleGuard roles={['admin', 'receptionist']}><PatientsPage /></RoleGuard>} />
                 <Route path="/doctors" element={<RoleGuard roles={['admin', 'receptionist']}><DoctorsPage /></RoleGuard>} />
 

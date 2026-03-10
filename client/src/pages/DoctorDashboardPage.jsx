@@ -9,7 +9,7 @@ import toast from 'react-hot-toast'
 
 const AVAILABILITY_OPTIONS = ['available', 'busy', 'on_break', 'offline']
 
-const emptyMedicine = { medicineName: '', dosage: '', frequency: '', duration: '', route: 'oral', specialInstructions: '' }
+const emptyMedicine = { medicineName: '', dosage: '', frequency: '', duration: '', route: 'oral', instructions: '' }
 
 export default function DoctorDashboardPage() {
   const { user } = useAuth()
@@ -28,6 +28,10 @@ export default function DoctorDashboardPage() {
   const [expandedPatient, setExpandedPatient] = useState(null)
   const [patientHistory, setPatientHistory] = useState([])
   const [historyLoading, setHistoryLoading] = useState(false)
+
+  // Upcoming appointments (scheduled but not yet checked in)
+  const [upcomingAppointments, setUpcomingAppointments] = useState([])
+  const [upcomingLoading, setUpcomingLoading] = useState(true)
 
   const doctorId = user?.linkedDoctorId
 
@@ -53,8 +57,21 @@ export default function DoctorDashboardPage() {
     }
   }
 
+  const fetchUpcomingAppointments = async () => {
+    if (!doctorId) return
+    try {
+      const data = await apiFetch(`/doctors/${doctorId}/appointments`)
+      setUpcomingAppointments(data.appointments || [])
+    } catch {
+      setUpcomingAppointments([])
+    } finally {
+      setUpcomingLoading(false)
+    }
+  }
+
   useEffect(() => {
     fetchAssignedPatients()
+    fetchUpcomingAppointments()
     // Fetch current availability
     if (doctorId) {
       apiFetch(`/doctors/${doctorId}`)
@@ -239,6 +256,37 @@ export default function DoctorDashboardPage() {
         </div>
       </div>
 
+      {/* Today's Schedule – upcoming appointments not yet checked in */}
+      <SectionCard title="Today's Schedule" eyebrow={`${upcomingAppointments.length} upcoming`}>
+        {upcomingLoading ? (
+          <LoadingSpinner message="Loading schedule..." />
+        ) : upcomingAppointments.length === 0 ? (
+          <div className="flex h-24 items-center justify-center rounded-2xl border border-dashed border-ink/10 bg-white/30 text-sm text-ink/50">
+            No upcoming appointments scheduled for today
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {upcomingAppointments.map((apt) => (
+              <div key={apt._id} className="rounded-2xl bg-white/70 p-4 ring-1 ring-ink/10">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-sand/40 font-display text-sm font-bold text-ink/70">
+                    {new Date(apt.slotStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="truncate text-sm font-semibold">{apt.patientId?.fullName || 'Unknown'}</h4>
+                    <p className="text-xs text-ink/50">{apt.patientId?.patientCode}</p>
+                  </div>
+                </div>
+                {apt.notes && <p className="mt-2 text-xs text-ink/40 line-clamp-2">{apt.notes}</p>}
+                <div className="mt-2">
+                  <StatusBadge status="scheduled" label="Awaiting check-in" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </SectionCard>
+
       <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         {/* Assigned patients panel */}
         <SectionCard title="Assigned Patients" eyebrow={`${activePatients.length} patient${activePatients.length !== 1 ? 's' : ''}`}>
@@ -413,8 +461,8 @@ export default function DoctorDashboardPage() {
                           type="text"
                           placeholder="Special instructions (optional)"
                           className="mt-2 w-full rounded-lg border-0 p-2 text-sm ring-1 ring-inset ring-ink/10 bg-white"
-                          value={med.specialInstructions}
-                          onChange={e => updateMedicine(idx, 'specialInstructions', e.target.value)}
+                          value={med.instructions}
+                          onChange={e => updateMedicine(idx, 'instructions', e.target.value)}
                         />
                       </div>
                     ))}

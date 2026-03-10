@@ -131,6 +131,32 @@ export const getDoctorQueue = asyncHandler(async (req, res) => {
   return sendSuccess(res, 'Doctor queue fetched successfully', { queue })
 })
 
+export const getDoctorAppointments = asyncHandler(async (req, res) => {
+  // Enforce doctor-patient lock: doctors can only view their own appointments
+  if (req.user?.role === 'doctor') {
+    const requestingDoctor = await Doctor.findOne({ userId: req.user.sub })
+    if (!requestingDoctor || requestingDoctor._id.toString() !== req.params.id) {
+      throw new ApiError(403, 'You can only view your own appointments')
+    }
+  }
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const tomorrow = new Date(today)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+
+  const appointments = await Appointment.find({
+    doctorId: req.params.id,
+    status: 'scheduled',
+    appointmentDate: { $gte: today, $lt: tomorrow },
+  })
+    .populate('patientId', 'fullName patientCode phone')
+    .populate('departmentId', 'name')
+    .sort({ slotStart: 1 })
+
+  return sendSuccess(res, 'Doctor appointments fetched successfully', { appointments })
+})
+
 export const getDoctorSlots = asyncHandler(async (req, res) => {
   const { date } = req.query
 

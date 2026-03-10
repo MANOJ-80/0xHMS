@@ -53,7 +53,7 @@ export const createAppointment = asyncHandler(async (req, res) => {
     appointmentDate: new Date(appointmentDate),
     slotStart: new Date(slotStart),
     slotEnd: new Date(slotEnd),
-    status: req.body.status || 'scheduled',
+    status: 'scheduled',
     bookingSource: req.body.bookingSource || 'patient_portal',
     preferredDoctorId: req.body.preferredDoctorId || null,
     notes: req.body.notes || '',
