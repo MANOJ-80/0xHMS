@@ -40,6 +40,72 @@ export default function PrescriptionsPage() {
   const totalPages = Math.ceil(prescriptions.length / PAGE_SIZE)
   const paginated = prescriptions.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
+  const handleDownload = (rx) => {
+    const lines = [
+      '═══════════════════════════════════════════════',
+      '              PRESCRIPTION',
+      '═══════════════════════════════════════════════',
+      '',
+      `Prescription #: ${rx.prescriptionNumber}`,
+      `Date:           ${new Date(rx.createdAt).toLocaleString()}`,
+      `Status:         ${rx.status || 'active'}`,
+      '',
+      `Patient:        ${rx.patientId?.fullName || 'N/A'}`,
+      `Doctor:         Dr. ${rx.doctorId?.fullName || 'N/A'}`,
+      '',
+      `Diagnosis:      ${rx.diagnosis || 'N/A'}`,
+      '',
+      '───────────────────────────────────────────────',
+      '  MEDICINES',
+      '───────────────────────────────────────────────',
+    ]
+
+    if (rx.medicines?.length) {
+      rx.medicines.forEach((med, i) => {
+        lines.push(`  ${i + 1}. ${med.medicineName}`)
+        lines.push(`     Dosage:    ${med.dosage || 'N/A'}`)
+        lines.push(`     Frequency: ${med.frequency || 'N/A'}`)
+        lines.push(`     Duration:  ${med.duration || 'N/A'}`)
+        if (med.route) lines.push(`     Route:     ${med.route}`)
+        if (med.specialInstructions) lines.push(`     Note:      ${med.specialInstructions}`)
+        lines.push('')
+      })
+    } else {
+      lines.push('  No medicines listed.')
+      lines.push('')
+    }
+
+    if (rx.treatmentNotes) {
+      lines.push('───────────────────────────────────────────────')
+      lines.push('  TREATMENT NOTES')
+      lines.push('───────────────────────────────────────────────')
+      lines.push(`  ${rx.treatmentNotes}`)
+      lines.push('')
+    }
+
+    if (rx.followUp?.required) {
+      lines.push('───────────────────────────────────────────────')
+      lines.push('  FOLLOW-UP')
+      lines.push('───────────────────────────────────────────────')
+      if (rx.followUp.date) lines.push(`  Date: ${new Date(rx.followUp.date).toLocaleDateString()}`)
+      if (rx.followUp.notes) lines.push(`  Notes: ${rx.followUp.notes}`)
+      lines.push('')
+    }
+
+    lines.push('═══════════════════════════════════════════════')
+
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `prescription-${rx.prescriptionNumber || rx._id}.txt`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    toast.success('Prescription downloaded')
+  }
+
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
       <SectionCard title="Prescriptions" eyebrow="Medical records">
@@ -180,6 +246,16 @@ export default function PrescriptionsPage() {
                 </div>
               )}
             </div>
+
+            {/* Download button */}
+            {user?.role === 'patient' && (
+              <button
+                onClick={() => handleDownload(selected)}
+                className="w-full rounded-xl bg-ink px-4 py-2.5 text-sm font-semibold text-white hover:bg-ink/90 transition"
+              >
+                Download Prescription
+              </button>
+            )}
           </div>
         ) : (
           <div className="flex h-full min-h-[200px] items-center justify-center rounded-2xl border border-dashed border-ink/10 bg-white/30 text-sm text-ink/50">

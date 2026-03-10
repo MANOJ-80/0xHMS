@@ -92,7 +92,7 @@ export default function NotificationsPage() {
             {/* Filter bar */}
             <div className="mb-4 flex flex-wrap gap-2">
               <button
-                onClick={() => { setFilter('all'); setPage(1) }}
+                onClick={() => { setFilter('all'); setPage(1); setSelected(null) }}
                 className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
                   filter === 'all' ? 'bg-ink text-white' : 'bg-white text-ink/70 ring-1 ring-ink/10 hover:text-ink'
                 }`}
@@ -102,7 +102,7 @@ export default function NotificationsPage() {
               {uniqueTypes.map(type => (
                 <button
                   key={type}
-                  onClick={() => { setFilter(type); setPage(1) }}
+                  onClick={() => { setFilter(type); setPage(1); setSelected(null) }}
                   className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
                     filter === type ? 'bg-ink text-white' : 'bg-white text-ink/70 ring-1 ring-ink/10 hover:text-ink'
                   }`}

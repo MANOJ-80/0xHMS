@@ -2,7 +2,6 @@ import { NavLink, Route, Routes, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import DashboardPage from './pages/DashboardPage'
 import AppointmentsPage from './pages/AppointmentsPage'
-import QueueBoardPage from './pages/QueueBoardPage'
 import PatientsPage from './pages/PatientsPage'
 import DoctorsPage from './pages/DoctorsPage'
 import LoginPage from './pages/LoginPage'
@@ -30,11 +29,6 @@ const icons = {
   appointments: (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-    </svg>
-  ),
-  queue: (
-    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
     </svg>
   ),
   patients: (
@@ -70,23 +64,31 @@ const icons = {
 }
 
 function getNavItems(role) {
-  if (role === 'admin' || role === 'receptionist') {
+  if (role === 'admin') {
     return [
       { to: '/', label: 'Overview', icon: icons.overview, end: true },
       { to: '/checkin', label: 'Check-in', icon: icons.checkin },
       { to: '/appointments', label: 'Appointments', icon: icons.appointments },
-      { to: '/queue-board', label: 'Queue Board', icon: icons.queue },
+      { to: '/patients', label: 'Patients', icon: icons.patients },
+      { to: '/doctors', label: 'Doctors', icon: icons.doctors },
+      { to: '/prescriptions', label: 'Prescriptions', icon: icons.prescriptions },
+      { to: '/notifications', label: 'Notifications', icon: icons.notifications },
+    ]
+  }
+  if (role === 'receptionist') {
+    return [
+      { to: '/', label: 'Overview', icon: icons.overview, end: true },
+      { to: '/checkin', label: 'Check-in', icon: icons.checkin },
+      { to: '/appointments', label: 'Appointments', icon: icons.appointments },
       { to: '/patients', label: 'Patients', icon: icons.patients },
       { to: '/doctors', label: 'Doctors', icon: icons.doctors },
       { to: '/notifications', label: 'Notifications', icon: icons.notifications },
-      { to: '/prescriptions', label: 'Prescriptions', icon: icons.prescriptions },
     ]
   }
   if (role === 'doctor') {
     return [
       { to: '/doctor-dashboard', label: 'Dashboard', icon: icons.dashboard },
       { to: '/appointments', label: 'Appointments', icon: icons.appointments },
-      { to: '/queue-board', label: 'Queue Board', icon: icons.queue },
       { to: '/prescriptions', label: 'Prescriptions', icon: icons.prescriptions },
       { to: '/notifications', label: 'Notifications', icon: icons.notifications },
     ]
@@ -239,7 +241,6 @@ export default function App() {
                 <Route path="/" element={<RoleGuard roles={['admin', 'receptionist']}><DashboardPage /></RoleGuard>} />
                 <Route path="/checkin" element={<RoleGuard roles={['admin', 'receptionist']}><CheckinPage /></RoleGuard>} />
                 <Route path="/appointments" element={<RoleGuard roles={['admin', 'receptionist', 'doctor']}><AppointmentsPage /></RoleGuard>} />
-                <Route path="/queue-board" element={<RoleGuard roles={['admin', 'receptionist', 'doctor']}><QueueBoardPage /></RoleGuard>} />
                 <Route path="/patients" element={<RoleGuard roles={['admin', 'receptionist']}><PatientsPage /></RoleGuard>} />
                 <Route path="/doctors" element={<RoleGuard roles={['admin', 'receptionist']}><DoctorsPage /></RoleGuard>} />
 
@@ -251,7 +252,7 @@ export default function App() {
 
                 {/* Shared pages */}
                 <Route path="/notifications" element={<NotificationsPage />} />
-                <Route path="/prescriptions" element={<PrescriptionsPage />} />
+                <Route path="/prescriptions" element={<RoleGuard roles={['admin', 'doctor', 'patient']}><PrescriptionsPage /></RoleGuard>} />
 
                 {/* Fallback */}
                 <Route path="*" element={<Navigate to={homeRoute} replace />} />

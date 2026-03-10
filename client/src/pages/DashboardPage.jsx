@@ -34,7 +34,7 @@ export default function DashboardPage() {
 
   const metrics = [
     { label: 'Checked in today', value: overview?.checkedInToday ?? '--', color: 'bg-teal/10 text-teal', ring: 'ring-teal/20' },
-    { label: 'Avg. wait time', value: overview ? `${overview.averageWaitMinutes}m` : '--', color: 'bg-coral/10 text-coral', ring: 'ring-coral/20' },
+    { label: 'Consultations done', value: overview?.completedConsultations ?? '--', color: 'bg-coral/10 text-coral', ring: 'ring-coral/20' },
     { label: 'Doctors active', value: overview?.doctorsActive ?? '--', color: 'bg-moss/10 text-moss', ring: 'ring-moss/20' },
     { label: 'Urgent cases', value: overview?.urgentCases ?? '--', color: 'bg-ink/10 text-ink/70', ring: 'ring-ink/10' },
   ]

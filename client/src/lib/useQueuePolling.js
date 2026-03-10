@@ -36,7 +36,7 @@ export function useQueuePolling(onUpdate, { room, ids } = {}) {
         }
       }, 3000)
 
-      socket.on('connect', () => {
+      const handleConnect = () => {
         socketConnected = true
         clearTimeout(socketTimeout)
 
@@ -52,14 +52,17 @@ export function useQueuePolling(onUpdate, { room, ids } = {}) {
             socket.emit(`join:${room}`, id)
           }
         }
-      })
+      }
 
-      socket.on('disconnect', () => {
+      const handleDisconnect = () => {
         socketConnected = false
         startPolling()
-      })
+      }
 
       const handleQueueUpdate = () => callbackRef.current()
+
+      socket.on('connect', handleConnect)
+      socket.on('disconnect', handleDisconnect)
       socket.on('queue:updated', handleQueueUpdate)
 
       function startPolling() {
@@ -71,8 +74,8 @@ export function useQueuePolling(onUpdate, { room, ids } = {}) {
       return () => {
         clearTimeout(socketTimeout)
         socket.off('queue:updated', handleQueueUpdate)
-        socket.off('connect')
-        socket.off('disconnect')
+        socket.off('connect', handleConnect)
+        socket.off('disconnect', handleDisconnect)
         if (interval) clearInterval(interval)
       }
     } catch {

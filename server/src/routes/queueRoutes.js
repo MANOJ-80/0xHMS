@@ -1,8 +1,6 @@
 import { Router } from 'express'
 import {
   assignQueueToken,
-  autoAssignQueueToken,
-  getQueueBoard,
   listQueueTokens,
   markQueueTokenCalled,
   markQueueTokenMissed,
@@ -12,10 +10,9 @@ import { requireAuth, requireRole } from '../middleware/auth.js'
 
 const router = Router()
 
-router.get('/board', getQueueBoard)
+// All queue routes require authentication (no more public board)
 router.use(requireAuth)
 router.get('/tokens', requireRole('admin', 'doctor', 'receptionist', 'patient'), listQueueTokens)
-router.post('/tokens/auto-assign', requireRole('admin', 'receptionist'), autoAssignQueueToken)
 router.patch('/tokens/:id/assign', requireRole('admin', 'receptionist'), assignQueueToken)
 router.patch('/tokens/:id/call', requireRole('admin', 'receptionist', 'doctor'), markQueueTokenCalled)
 router.patch('/tokens/:id/miss', requireRole('admin', 'receptionist', 'doctor'), markQueueTokenMissed)

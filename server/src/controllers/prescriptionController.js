@@ -99,7 +99,10 @@ export const listPrescriptions = asyncHandler(async (req, res) => {
   if (consultationId) query.consultationId = consultationId
 
   // Patients can only see their own prescriptions
-  if (req.user?.role === 'patient' && req.user?.linkedPatientId) {
+  if (req.user?.role === 'patient') {
+    if (!req.user.linkedPatientId) {
+      throw new ApiError(403, 'Patient account not linked')
+    }
     query.patientId = req.user.linkedPatientId
   }
 
@@ -127,6 +130,13 @@ export const getPrescription = asyncHandler(async (req, res) => {
 
   if (!prescription) {
     throw new ApiError(404, 'Prescription not found')
+  }
+
+  // Access scoping: patients can only view their own prescriptions
+  if (req.user?.role === 'patient') {
+    if (!req.user.linkedPatientId || prescription.patientId?._id?.toString() !== req.user.linkedPatientId.toString()) {
+      throw new ApiError(403, 'You can only view your own prescriptions')
+    }
   }
 
   return sendSuccess(res, 'Prescription fetched successfully', { prescription })
@@ -198,6 +208,13 @@ export const updatePrescription = asyncHandler(async (req, res) => {
  * GET /api/v1/prescriptions/patient/:patientId
  */
 export const getPatientPrescriptions = asyncHandler(async (req, res) => {
+  // Access scoping: patients can only view their own prescriptions
+  if (req.user?.role === 'patient') {
+    if (!req.user.linkedPatientId || req.params.patientId !== req.user.linkedPatientId.toString()) {
+      throw new ApiError(403, 'You can only view your own prescriptions')
+    }
+  }
+
   const prescriptions = await Prescription.find({
     patientId: req.params.patientId,
     isActive: true,

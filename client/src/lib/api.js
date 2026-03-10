@@ -31,7 +31,10 @@ export async function apiFetch(path, options = {}) {
     throw new Error('Session expired. Please log in again.')
   }
 
-  const payload = await response.json()
+  const payload = await response.json().catch(() => ({
+    success: false,
+    message: `Server error (${response.status})`,
+  }))
 
   if (!response.ok) {
     const error = new Error(payload.message || 'Request failed')

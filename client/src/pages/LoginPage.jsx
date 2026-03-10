@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../components/AuthProvider'
 import toast from 'react-hot-toast'
-import { Toaster } from 'react-hot-toast'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -36,7 +35,6 @@ export default function LoginPage() {
 
   return (
     <>
-      <Toaster position="top-right" toastOptions={{ className: 'text-sm', duration: 4000 }} />
       <div className="flex min-h-screen items-center justify-center bg-mesh px-4 py-12">
         <div className="w-full max-w-sm space-y-6 rounded-2xl border border-white/50 bg-white/80 p-8 shadow-panel backdrop-blur">
           {/* Brand */}

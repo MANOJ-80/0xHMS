@@ -92,6 +92,19 @@ export const listAppointments = asyncHandler(async (req, res) => {
     query.appointmentDate = { $gte: start, $lt: end }
   }
 
+  // Role-based access scoping
+  if (req.user?.role === 'patient') {
+    if (!req.user.linkedPatientId) {
+      throw new ApiError(403, 'Patient account not linked')
+    }
+    query.patientId = req.user.linkedPatientId
+  } else if (req.user?.role === 'doctor') {
+    const doctor = await Doctor.findOne({ userId: req.user.sub })
+    if (doctor) {
+      query.doctorId = doctor._id
+    }
+  }
+
   const appointments = await Appointment.find(query)
     .populate('doctorId', 'fullName specialization consultationRoom')
     .populate('patientId', 'fullName patientCode phone')
@@ -128,6 +141,13 @@ export const cancelAppointment = asyncHandler(async (req, res) => {
 
   if (appointment.status === 'completed') {
     throw new ApiError(400, 'Cannot cancel a completed appointment')
+  }
+
+  // Ownership check for patients
+  if (req.user?.role === 'patient') {
+    if (!req.user.linkedPatientId || appointment.patientId.toString() !== req.user.linkedPatientId.toString()) {
+      throw new ApiError(403, 'You can only cancel your own appointments')
+    }
   }
 
   appointment.status = 'cancelled'

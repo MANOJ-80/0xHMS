@@ -56,6 +56,14 @@ export const createDoctor = asyncHandler(async (req, res) => {
 })
 
 export const updateDoctor = asyncHandler(async (req, res) => {
+  // Doctors can only update their own profile
+  if (req.user?.role === 'doctor') {
+    const requestingDoctor = await Doctor.findOne({ userId: req.user.sub })
+    if (!requestingDoctor || requestingDoctor._id.toString() !== req.params.id) {
+      throw new ApiError(403, 'You can only update your own profile')
+    }
+  }
+
   const allowedFields = [
     'fullName', 'specialization', 'departmentId', 'consultationRoom',
     'maxQueueThreshold', 'averageConsultationMinutes', 'allowAutoAssignment',
@@ -103,6 +111,14 @@ export const updateAvailability = asyncHandler(async (req, res) => {
 })
 
 export const getDoctorQueue = asyncHandler(async (req, res) => {
+  // Enforce doctor-patient lock: doctors can only view their own queue
+  if (req.user?.role === 'doctor') {
+    const requestingDoctor = await Doctor.findOne({ userId: req.user.sub })
+    if (!requestingDoctor || requestingDoctor._id.toString() !== req.params.id) {
+      throw new ApiError(403, 'You can only view your own patient queue')
+    }
+  }
+
   const queue = await QueueToken.find({
     assignedDoctorId: req.params.id,
     queueStatus: { $in: ['waiting', 'assigned', 'called', 'in_consultation'] },

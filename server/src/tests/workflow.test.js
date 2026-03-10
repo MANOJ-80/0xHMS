@@ -75,7 +75,7 @@ describe('Full patient workflow (E2E)', () => {
     expect(res.body.data.queueToken).toBeDefined()
     queueTokenId = res.body.data.queueToken._id
 
-    // A doctor should have been auto-assigned
+    // The doctor was assigned via the appointment's doctorId (mandatory assignment)
     expect(res.body.data.queueToken.assignedDoctorId).toBeTruthy()
 
     const notifAfter = await Notification.countDocuments({ type: 'doctor_assignment' })
@@ -203,13 +203,16 @@ describe('Full patient workflow (E2E)', () => {
   // ── Negative: mark as missed ───────────────────────────────────────────
 
   it('Bonus — mark a different token as missed triggers missed notification', async () => {
-    // Create a separate check-in to produce a new queue token
+    // Create a separate patient for this test (original patient still has an active check-in)
+    const missPatient = await seedPatient({ phone: '9876549999' })
+
     const res1 = await api()
       .post('/api/v1/checkins')
       .set('Authorization', `Bearer ${receptionistToken}`)
       .send({
-        patientId: patient._id.toString(),
+        patientId: missPatient._id.toString(),
         departmentId: department._id.toString(),
+        doctorId: doctorData.doctor._id.toString(),
         isWalkIn: true,
         specialization: 'General Medicine',
       })

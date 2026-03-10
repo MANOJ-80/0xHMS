@@ -3,7 +3,7 @@ import { Checkin } from '../models/Checkin.js'
 import { Patient } from '../models/Patient.js'
 import { QueueToken } from '../models/QueueToken.js'
 import { createAuditLog } from '../services/auditService.js'
-import { findBestDoctor, logAssignment } from '../services/assignmentService.js'
+import { assignSpecificDoctor, logAssignment } from '../services/assignmentService.js'
 import { notifyDoctorAssignment } from '../services/notificationService.js'
 import { recalculateDoctorQueue } from '../services/queueService.js'
 import { emitQueueUpdate } from '../services/socketService.js'
@@ -26,6 +26,11 @@ async function getNextTokenSequence(departmentId) {
   return count + 1
 }
 
+/**
+ * Check in a patient and assign them to a SPECIFIC doctor.
+ * Doctor assignment is mandatory — the receptionist must explicitly choose the doctor.
+ * This enforces the doctor-patient lock: only the assigned doctor can see/manage this patient.
+ */
 export const createCheckin = asyncHandler(async (req, res) => {
   const {
     appointmentId,
@@ -45,29 +50,40 @@ export const createCheckin = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'patientId and departmentId are required')
   }
 
+  // Doctor assignment is now MANDATORY
+  const resolvedDoctorId = doctorId || appointment?.doctorId || null
+  if (!resolvedDoctorId) {
+    throw new ApiError(400, 'doctorId is required — receptionist must assign a specific doctor')
+  }
+
   const patient = await Patient.findById(patientId)
   if (!patient) {
     throw new ApiError(404, 'Patient not found')
   }
 
-  const specialization = appointment?.specialization || req.body.specialization || 'General'
-
-  const suggestedDoctor = await findBestDoctor({
-    departmentId,
-    specialization,
-    preferredDoctorId: doctorId || appointment?.doctorId || null,
+  // Prevent duplicate active check-ins for the same patient
+  const existingActiveCheckin = await Checkin.findOne({
+    patientId,
+    status: { $in: ['checked_in', 'queued'] },
   })
+  if (existingActiveCheckin) {
+    throw new ApiError(409, 'Patient already has an active check-in')
+  }
 
-  // Resolve final specialization: use doctor's specialization as last resort
-  const resolvedSpecialization =
-    specialization !== 'General' ? specialization : suggestedDoctor?.doctor?.specialization || 'General'
+  // Validate the specified doctor is active and in a workable state
+  const doctorResult = await assignSpecificDoctor(resolvedDoctorId)
+  if (!doctorResult) {
+    throw new ApiError(400, 'Selected doctor is not available. Choose a different doctor or wait until they are available.')
+  }
 
-  // --- Create the Checkin record FIRST ---
+  const specialization = appointment?.specialization || req.body.specialization || doctorResult.doctor.specialization || 'General'
+
+  // --- Create the Checkin record ---
   const checkin = await Checkin.create({
     checkinNumber: generateCode('CHK'),
     patientId,
     appointmentId: appointment?._id || null,
-    doctorId: suggestedDoctor?.doctor?._id || doctorId || appointment?.doctorId || null,
+    doctorId: doctorResult.doctor._id,
     departmentId,
     checkinMethod: checkinMethod || 'reception',
     isWalkIn: Boolean(isWalkIn),
@@ -76,7 +92,7 @@ export const createCheckin = asyncHandler(async (req, res) => {
     handledBy: req.user?.sub || null,
   })
 
-  // --- Now create the QueueToken using checkin._id ---
+  // --- Create the QueueToken locked to this specific doctor ---
   const tokenSequence = await getNextTokenSequence(departmentId)
   const deptPrefix = departmentId.toString().slice(-3).toUpperCase()
 
@@ -86,12 +102,12 @@ export const createCheckin = asyncHandler(async (req, res) => {
     patientId,
     appointmentId: appointment?._id || null,
     checkinId: checkin._id,
-    assignedDoctorId: suggestedDoctor?.doctor?._id || doctorId || appointment?.doctorId || null,
+    assignedDoctorId: doctorResult.doctor._id,
     departmentId,
-    specialization: resolvedSpecialization,
+    specialization,
     queueType: isWalkIn ? 'walk_in' : 'scheduled',
     priorityLevel: urgencyLevel,
-    queueStatus: suggestedDoctor?.doctor ? 'assigned' : 'waiting',
+    queueStatus: 'assigned',
   })
 
   checkin.status = 'queued'
@@ -102,26 +118,22 @@ export const createCheckin = asyncHandler(async (req, res) => {
     await appointment.save()
   }
 
-  if (suggestedDoctor?.doctor) {
-    await logAssignment({
-      queueTokenId: queueToken._id,
-      patientId,
-      appointmentId: appointment?._id || null,
-      departmentId,
-      specialization: queueToken.specialization,
-      assignedDoctorId: suggestedDoctor.doctor._id,
-      assignedByType: req.user?.role || 'system',
-      assignedBy: req.user?.sub || null,
-      decisionReason:
-        doctorId || appointment?.doctorId ? 'preferred doctor respected' : 'shortest predicted wait',
-      estimatedWaitAfter: suggestedDoctor.stats.estimatedWaitMinutes,
-      assignmentType: 'initial',
-    })
-  }
+  // Log the explicit doctor assignment
+  await logAssignment({
+    queueTokenId: queueToken._id,
+    patientId,
+    appointmentId: appointment?._id || null,
+    departmentId,
+    specialization: queueToken.specialization,
+    assignedDoctorId: doctorResult.doctor._id,
+    assignedByType: req.user?.role || 'receptionist',
+    assignedBy: req.user?.sub || null,
+    decisionReason: 'receptionist direct assignment',
+    estimatedWaitAfter: doctorResult.stats.estimatedWaitMinutes,
+    assignmentType: 'initial',
+  })
 
-  if (queueToken.assignedDoctorId) {
-    await recalculateDoctorQueue(queueToken.assignedDoctorId)
-  }
+  await recalculateDoctorQueue(doctorResult.doctor._id)
 
   await createAuditLog({
     req,
@@ -130,25 +142,23 @@ export const createCheckin = asyncHandler(async (req, res) => {
     action: 'checkin.created',
     entityType: 'Checkin',
     entityId: checkin._id,
-    metadata: { patientId, queueTokenId: queueToken._id, urgencyLevel },
+    metadata: { patientId, queueTokenId: queueToken._id, urgencyLevel, assignedDoctorId: doctorResult.doctor._id.toString() },
   })
 
   emitQueueUpdate(req, {
     departmentId,
-    doctorId: queueToken.assignedDoctorId,
+    doctorId: doctorResult.doctor._id,
     patientId,
   })
 
-  // Send doctor assignment notification if a doctor was assigned (fire and forget)
-  if (queueToken.assignedDoctorId) {
-    try {
-      await notifyDoctorAssignment({ queueToken, patient, doctor: suggestedDoctor?.doctor })
-    } catch (notifyError) {
-      console.error('[Notification] Failed to send doctor assignment notification at checkin:', notifyError.message)
-    }
+  // Send doctor assignment notification (fire and forget)
+  try {
+    await notifyDoctorAssignment({ queueToken, patient, doctor: doctorResult.doctor })
+  } catch (notifyError) {
+    console.error('[Notification] Failed to send doctor assignment notification at checkin:', notifyError.message)
   }
 
-  return sendSuccess(res, 'Patient checked in successfully', { checkin, queueToken }, 201)
+  return sendSuccess(res, 'Patient checked in and assigned to doctor successfully', { checkin, queueToken }, 201)
 })
 
 export const listCheckins = asyncHandler(async (req, res) => {

@@ -85,6 +85,7 @@ export default function AppointmentsPage() {
       })
 
       toast.success('Appointment booked successfully')
+      setPage(1) // reset pagination to show latest
       fetchData()
     } catch (err) {
       toast.error(err.message)
@@ -98,6 +99,7 @@ export default function AppointmentsPage() {
     try {
       await apiFetch(`/appointments/${cancelTarget}/cancel`, { method: 'PATCH' })
       toast.success('Appointment cancelled')
+      setPage(1) // reset pagination to show updated list
       fetchData()
     } catch (err) {
       toast.error(err.message)
@@ -158,15 +160,16 @@ export default function AppointmentsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-ink/70">Doctor (Optional)</label>
+                  <label className="block text-xs font-medium text-ink/70">Preferred Doctor</label>
                   <select
                     className="mt-1 block w-full rounded-xl border-0 p-2.5 text-sm ring-1 ring-inset ring-ink/10 bg-white"
                     value={formData.doctorId}
                     onChange={e => setFormData({ ...formData, doctorId: e.target.value })}
                   >
-                    <option value="">Any Available Doctor</option>
-                    {doctors.map(d => <option key={d._id} value={d._id}>{d.fullName}</option>)}
+                    <option value="">Assigned at check-in</option>
+                    {doctors.map(d => <option key={d._id} value={d._id}>{d.fullName} — {d.specialization || 'General'}</option>)}
                   </select>
+                  <p className="mt-1 text-[10px] text-ink/40">Final doctor assignment is confirmed by the receptionist during check-in.</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -222,7 +225,7 @@ export default function AppointmentsPage() {
                       <tr key={apt._id} className="hover:bg-canvas/30 transition">
                         <td className="px-4 py-3 font-mono text-xs text-ink/50">{apt.appointmentNumber}</td>
                         <td className="px-4 py-3">{apt.patientId?.fullName || 'N/A'}</td>
-                        <td className="px-4 py-3">{apt.doctorId?.fullName ? `Dr. ${apt.doctorId.fullName}` : 'TBD'}</td>
+                        <td className="px-4 py-3">{apt.doctorId?.fullName ? `Dr. ${apt.doctorId.fullName}` : 'Assigned at check-in'}</td>
                         <td className="px-4 py-3 text-xs">
                           {new Date(apt.slotStart).toLocaleDateString()}{' '}
                           {new Date(apt.slotStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

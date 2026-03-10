@@ -36,11 +36,12 @@ export const listPatients = asyncHandler(async (req, res) => {
   const query = {}
 
   if (search) {
+    const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     query.$or = [
-      { fullName: { $regex: search, $options: 'i' } },
-      { phone: { $regex: search, $options: 'i' } },
-      { email: { $regex: search, $options: 'i' } },
-      { patientCode: { $regex: search, $options: 'i' } },
+      { fullName: { $regex: escaped, $options: 'i' } },
+      { phone: { $regex: escaped, $options: 'i' } },
+      { email: { $regex: escaped, $options: 'i' } },
+      { patientCode: { $regex: escaped, $options: 'i' } },
     ]
   }
 
@@ -53,6 +54,13 @@ export const listPatients = asyncHandler(async (req, res) => {
 })
 
 export const getPatient = asyncHandler(async (req, res) => {
+  // Access scoping: patients can only view their own profile
+  if (req.user?.role === 'patient') {
+    if (!req.user.linkedPatientId || req.params.id !== req.user.linkedPatientId.toString()) {
+      throw new ApiError(403, 'You can only view your own profile')
+    }
+  }
+
   const patient = await Patient.findById(req.params.id)
 
   if (!patient) {

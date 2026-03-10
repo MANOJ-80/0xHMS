@@ -17,6 +17,19 @@ export const listConsultations = asyncHandler(async (req, res) => {
   if (req.query.patientId) query.patientId = req.query.patientId
   if (req.query.status) query.status = req.query.status
 
+  // Enforce doctor-patient lock: doctors can only see their own consultations
+  if (req.user?.role === 'doctor') {
+    const requestingDoctor = await Doctor.findOne({ userId: req.user.sub })
+    if (requestingDoctor) {
+      query.doctorId = requestingDoctor._id
+    }
+  }
+
+  // Patients can only see their own consultations
+  if (req.user?.role === 'patient' && req.user?.linkedPatientId) {
+    query.patientId = req.user.linkedPatientId
+  }
+
   const consultations = await Consultation.find(query)
     .populate('patientId', 'fullName patientCode')
     .populate('doctorId', 'fullName')
@@ -48,6 +61,14 @@ export const startConsultation = asyncHandler(async (req, res) => {
 
   if (!queueToken.assignedDoctorId) {
     throw new ApiError(400, 'Queue token has no assigned doctor — assign a doctor before starting consultation')
+  }
+
+  // Enforce doctor-patient lock: only the assigned doctor can start this consultation
+  if (req.user?.role === 'doctor') {
+    const requestingDoctor = await Doctor.findOne({ userId: req.user.sub })
+    if (!requestingDoctor || requestingDoctor._id.toString() !== queueToken.assignedDoctorId.toString()) {
+      throw new ApiError(403, 'This patient is assigned to a different doctor. Only the assigned doctor can start this consultation.')
+    }
   }
 
   const consultation = await Consultation.create({
@@ -87,19 +108,24 @@ export const startConsultation = asyncHandler(async (req, res) => {
 })
 
 export const completeConsultation = asyncHandler(async (req, res) => {
-  const consultation = await Consultation.findByIdAndUpdate(
-    req.params.id,
-    {
-      status: 'completed',
-      consultationNotes: req.body.consultationNotes || '',
-      completedAt: new Date(),
-    },
-    { new: true },
-  )
+  const consultation = await Consultation.findById(req.params.id)
 
   if (!consultation) {
     throw new ApiError(404, 'Consultation not found')
   }
+
+  // Enforce doctor-patient lock: only the assigned doctor can complete this consultation
+  if (req.user?.role === 'doctor') {
+    const requestingDoctor = await Doctor.findOne({ userId: req.user.sub })
+    if (!requestingDoctor || requestingDoctor._id.toString() !== consultation.doctorId.toString()) {
+      throw new ApiError(403, 'Only the assigned doctor can complete this consultation.')
+    }
+  }
+
+  consultation.status = 'completed'
+  consultation.consultationNotes = req.body.consultationNotes || ''
+  consultation.completedAt = new Date()
+  await consultation.save()
 
   await QueueToken.findByIdAndUpdate(consultation.queueTokenId, {
     queueStatus: 'completed',

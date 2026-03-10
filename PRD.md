@@ -154,8 +154,7 @@ To make the PRD implementation-ready, the following decisions are assumed for MV
 - Patients use a mobile-friendly web portal rather than a native app.
 - Appointment visits use fixed time slots.
 - Walk-in visits use token-based queueing.
-- Patients may select a specific doctor or only a specialization.
-- If a doctor is not chosen, the system auto-assigns a suitable doctor.
+- Receptionist must assign a specific doctor during check-in.
 - Reassignment is allowed before consultation starts if it reduces waiting time and keeps specialization aligned.
 - Urgent patients may be prioritized by receptionists or doctors.
 - Queue ordering uses a hybrid model: appointment patients are prioritized near their scheduled time while walk-ins fill open capacity.
@@ -232,7 +231,7 @@ Digitally manage patient waiting flow and provide transparent, real-time queue v
 - Appointment patient queue entry
 - Urgent patient prioritization
 - No-show handling
-- Queue board display for waiting areas
+- Patients view their active visit status on their personal dashboard
 
 #### Business Rules
 

@@ -127,15 +127,19 @@ export const autoAssignQueueToken = asyncHandler(async (req, res) => {
 })
 
 export const markQueueTokenCalled = asyncHandler(async (req, res) => {
-  const queueToken = await QueueToken.findByIdAndUpdate(
-    req.params.id,
-    { queueStatus: 'called', actualCalledAt: new Date() },
-    { new: true },
-  )
+  const queueToken = await QueueToken.findById(req.params.id)
 
   if (!queueToken) {
     throw new ApiError(404, 'Queue token not found')
   }
+
+  if (['completed', 'missed', 'in_consultation'].includes(queueToken.queueStatus)) {
+    throw new ApiError(400, `Cannot call token in status: ${queueToken.queueStatus}`)
+  }
+
+  queueToken.queueStatus = 'called'
+  queueToken.actualCalledAt = new Date()
+  await queueToken.save()
 
   emitQueueUpdate(req, {
     departmentId: queueToken.departmentId,
@@ -158,15 +162,19 @@ export const markQueueTokenCalled = asyncHandler(async (req, res) => {
 })
 
 export const markQueueTokenMissed = asyncHandler(async (req, res) => {
-  const queueToken = await QueueToken.findByIdAndUpdate(
-    req.params.id,
-    { queueStatus: 'missed', isActive: false },
-    { new: true },
-  )
+  const queueToken = await QueueToken.findById(req.params.id)
 
   if (!queueToken) {
     throw new ApiError(404, 'Queue token not found')
   }
+
+  if (['completed', 'missed'].includes(queueToken.queueStatus)) {
+    throw new ApiError(400, `Cannot mark token as missed in status: ${queueToken.queueStatus}`)
+  }
+
+  queueToken.queueStatus = 'missed'
+  queueToken.isActive = false
+  await queueToken.save()
 
   if (queueToken.assignedDoctorId) {
     await recalculateDoctorQueue(queueToken.assignedDoctorId)

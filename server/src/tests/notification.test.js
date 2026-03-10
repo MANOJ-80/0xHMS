@@ -152,7 +152,7 @@ describe('Notification API', () => {
   // ── Retry ──────────────────────────────────────────────────────────────
 
   describe('PATCH /api/v1/notifications/:id/retry', () => {
-    it('should return notification on retry of a sent notification (no-op)', async () => {
+    it('should reject retry of a non-failed notification', async () => {
       const sentNotif = await Notification.findOne({ status: 'sent' })
       if (!sentNotif) return
 
@@ -160,8 +160,8 @@ describe('Notification API', () => {
         .patch(`/api/v1/notifications/${sentNotif._id}/retry`)
         .set('Authorization', `Bearer ${adminToken}`)
 
-      // retryNotification returns the notification unchanged if status !== 'failed'
-      expect(res.status).toBe(200)
+      // Only failed notifications can be retried; sent notifications are rejected
+      expect(res.status).toBe(400)
     })
   })
 })

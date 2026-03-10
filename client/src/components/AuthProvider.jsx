@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { apiFetch, getToken } from '../lib/api'
+import { disconnectSocket } from '../lib/socket'
 
 const AuthContext = createContext(null)
 
@@ -40,6 +41,7 @@ export function AuthProvider({ children }) {
   }
 
   const logout = () => {
+    disconnectSocket()
     localStorage.removeItem('accessToken')
     setUser(null)
   }

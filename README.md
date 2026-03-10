@@ -752,16 +752,14 @@ Base URL: `http://localhost:5000/api/v1`
 **Check-in creates three records atomically:**
 1. `Checkin` record
 2. `QueueToken` (with token number like `A-OPD-001`)
-3. `DoctorAssignment` (via smart assignment)
+3. `DoctorAssignment` (receptionist assigns doctor at check-in)
 
 ### Queue
 
 | Method | Path | Auth | Roles | Description |
 |--------|------|------|-------|-------------|
-| GET | `/queue/board` | None | - | Public queue board (all active tokens) |
 | GET | `/queue/tokens` | Bearer | all | List queue tokens (filterable) |
-| POST | `/queue/tokens/auto-assign` | Bearer | admin, receptionist | Auto-assign a waiting token to a doctor |
-| PATCH | `/queue/tokens/:id/assign` | Bearer | admin, receptionist | Manually assign token to a doctor |
+| PATCH | `/queue/tokens/:id/assign` | Bearer | admin, receptionist | Assign token to a doctor |
 | PATCH | `/queue/tokens/:id/call` | Bearer | admin, receptionist, doctor | Mark token as called |
 | PATCH | `/queue/tokens/:id/miss` | Bearer | admin, receptionist, doctor | Mark token as missed |
 | PATCH | `/queue/tokens/:id/priority` | Bearer | admin, receptionist, doctor | Update token priority level |
@@ -934,8 +932,8 @@ The application uses a **sidebar layout** with a collapsible navigation panel. O
 
 | Role | Nav Items |
 |------|-----------|
-| admin / receptionist | Overview, Check-in, Appointments, Queue Board, Patients, Doctors, Notifications, Prescriptions |
-| doctor | Dr. Dashboard, Appointments, Queue Board, Notifications, Prescriptions |
+| admin / receptionist | Overview, Check-in, Appointments, Patients, Doctors, Notifications, Prescriptions |
+| doctor | Dr. Dashboard, Appointments, Notifications, Prescriptions |
 | patient | My Dashboard, Appointments, Notifications, Prescriptions |
 
 ### Page Details
@@ -1537,7 +1535,7 @@ Full system access: manage departments, doctors, patients, view audit logs, repo
 | Email | `reception@spcms.local` |
 | Password | `Reception@123` |
 
-Can register patients, book appointments, perform check-ins, and monitor the queue board.
+Can register patients, book appointments, perform check-ins, and manage doctor assignments.
 
 #### Doctors
 

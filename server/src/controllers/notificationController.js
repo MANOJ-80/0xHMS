@@ -18,7 +18,10 @@ export const listNotifications = asyncHandler(async (req, res) => {
   if (status) query.status = status
 
   // Patients can only see their own notifications
-  if (req.user?.role === 'patient' && req.user?.linkedPatientId) {
+  if (req.user?.role === 'patient') {
+    if (!req.user.linkedPatientId) {
+      throw new ApiError(403, 'Patient account not linked')
+    }
     query.patientId = req.user.linkedPatientId
   }
 
@@ -40,6 +43,13 @@ export const getNotification = asyncHandler(async (req, res) => {
 
   if (!notification) {
     throw new ApiError(404, 'Notification not found')
+  }
+
+  // Access scoping: patients can only view their own notifications
+  if (req.user?.role === 'patient') {
+    if (!req.user.linkedPatientId || notification.patientId?._id?.toString() !== req.user.linkedPatientId.toString()) {
+      throw new ApiError(403, 'You can only view your own notifications')
+    }
   }
 
   return sendSuccess(res, 'Notification fetched successfully', { notification })
@@ -73,15 +83,19 @@ export const sendManualNotification = asyncHandler(async (req, res) => {
  * PATCH /api/v1/notifications/:id/retry
  */
 export const retryFailedNotification = asyncHandler(async (req, res) => {
-  const notification = await retryNotification(req.params.id)
-
-  if (!notification) {
+  // Check retry limits BEFORE attempting the retry
+  const existing = await Notification.findById(req.params.id)
+  if (!existing) {
     throw new ApiError(404, 'Notification not found')
   }
-
-  if (notification.retryCount >= notification.maxRetries && notification.status === 'failed') {
+  if (existing.status !== 'failed') {
+    throw new ApiError(400, 'Only failed notifications can be retried')
+  }
+  if (existing.retryCount >= existing.maxRetries) {
     throw new ApiError(400, 'Maximum retry attempts reached for this notification')
   }
+
+  const notification = await retryNotification(req.params.id)
 
   return sendSuccess(res, 'Notification retry processed', { notification })
 })

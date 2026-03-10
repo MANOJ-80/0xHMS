@@ -13,7 +13,7 @@ const emptyMedicine = { medicineName: '', dosage: '', frequency: '', duration: '
 
 export default function DoctorDashboardPage() {
   const { user } = useAuth()
-  const [queue, setQueue] = useState([])
+  const [assignedPatients, setAssignedPatients] = useState([])
   const [loading, setLoading] = useState(true)
   const [activeConsultation, setActiveConsultation] = useState(null)
   const [consultationNotes, setConsultationNotes] = useState('')
@@ -24,15 +24,20 @@ export default function DoctorDashboardPage() {
   const [rxData, setRxData] = useState({ diagnosis: '', treatmentNotes: '', medicines: [{ ...emptyMedicine }] })
   const [rxLoading, setRxLoading] = useState(false)
 
+  // Patient history expansion
+  const [expandedPatient, setExpandedPatient] = useState(null)
+  const [patientHistory, setPatientHistory] = useState([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+
   const doctorId = user?.linkedDoctorId
 
-  const fetchQueue = async () => {
+  const fetchAssignedPatients = async () => {
     if (!doctorId) return
     try {
       const data = await apiFetch(`/doctors/${doctorId}/queue`)
-      setQueue(data.queue)
+      setAssignedPatients(data.queue || [])
 
-      const inConsultation = data.queue.find(q => q.queueStatus === 'in_consultation')
+      const inConsultation = (data.queue || []).find(q => q.queueStatus === 'in_consultation')
       if (inConsultation && !activeConsultation) {
         apiFetch(`/consultations?doctorId=${doctorId}&status=in_consultation`)
           .then(res => {
@@ -49,7 +54,7 @@ export default function DoctorDashboardPage() {
   }
 
   useEffect(() => {
-    fetchQueue()
+    fetchAssignedPatients()
     // Fetch current availability
     if (doctorId) {
       apiFetch(`/doctors/${doctorId}`)
@@ -60,18 +65,36 @@ export default function DoctorDashboardPage() {
     }
   }, [doctorId])
 
-  useQueuePolling(fetchQueue, { room: 'doctor', ids: doctorId })
+  useQueuePolling(fetchAssignedPatients, { room: 'doctor', ids: doctorId })
 
   const toggleAvailability = async (newStatus) => {
     try {
-      await apiFetch(`/doctors/${doctorId}`, {
+      await apiFetch(`/doctors/${doctorId}/availability`, {
         method: 'PATCH',
         body: JSON.stringify({ availabilityStatus: newStatus }),
       })
       setAvailability(newStatus)
-      toast.success(`Status changed to ${newStatus}`)
+      toast.success(`Status changed to ${newStatus.replace(/_/g, ' ')}`)
     } catch (err) {
       toast.error(err.message)
+    }
+  }
+
+  const viewPatientHistory = async (patientId) => {
+    if (expandedPatient === patientId) {
+      setExpandedPatient(null)
+      return
+    }
+    setHistoryLoading(true)
+    setExpandedPatient(patientId)
+    setPatientHistory([]) // clear stale data from previous patient
+    try {
+      const data = await apiFetch(`/prescriptions/patient/${patientId}`)
+      setPatientHistory(data.prescriptions || [])
+    } catch {
+      setPatientHistory([])
+    } finally {
+      setHistoryLoading(false)
     }
   }
 
@@ -84,7 +107,7 @@ export default function DoctorDashboardPage() {
       setActiveConsultation(data.consultation)
       setShowRxForm(false)
       setRxData({ diagnosis: '', treatmentNotes: '', medicines: [{ ...emptyMedicine }] })
-      fetchQueue()
+      fetchAssignedPatients()
       toast.success('Consultation started')
     } catch (err) {
       toast.error(err.message)
@@ -100,6 +123,7 @@ export default function DoctorDashboardPage() {
       })
       toast.success('Consultation completed')
       setShowRxForm(true) // prompt to write prescription
+      fetchAssignedPatients() // refresh queue to reflect status change
     } catch (err) {
       toast.error(err.message)
     }
@@ -157,12 +181,12 @@ export default function DoctorDashboardPage() {
           medicines: validMeds,
         }),
       })
-      toast.success('Prescription created and patient notified')
+      toast.success('Prescription saved and patient notified')
       setShowRxForm(false)
       setActiveConsultation(null)
       setConsultationNotes('')
       setRxData({ diagnosis: '', treatmentNotes: '', medicines: [{ ...emptyMedicine }] })
-      fetchQueue()
+      fetchAssignedPatients()
     } catch (err) {
       toast.error(err.message)
     } finally {
@@ -175,7 +199,7 @@ export default function DoctorDashboardPage() {
     setActiveConsultation(null)
     setConsultationNotes('')
     setRxData({ diagnosis: '', treatmentNotes: '', medicines: [{ ...emptyMedicine }] })
-    fetchQueue()
+    fetchAssignedPatients()
     toast('Prescription skipped', { icon: '\u2139\uFE0F' })
   }
 
@@ -187,15 +211,15 @@ export default function DoctorDashboardPage() {
     return <div className="p-8 text-center text-ink/60">No doctor profile linked to this user.</div>
   }
 
-  const activeQueue = queue.filter(q => q.queueStatus !== 'completed')
+  const activePatients = assignedPatients.filter(q => q.queueStatus !== 'completed' && q.queueStatus !== 'missed')
 
   return (
     <div className="space-y-6">
       {/* Top bar: availability toggle */}
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-white/70 p-4 ring-1 ring-ink/10">
         <div>
-          <h1 className="font-display text-xl font-semibold">Doctor Dashboard</h1>
-          <p className="text-sm text-ink/60">Manage your queue and consultations</p>
+          <h1 className="font-display text-xl font-semibold">My Patients</h1>
+          <p className="text-sm text-ink/60">Patients assigned to you by the front desk</p>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-ink/50 mr-1">Status:</span>
@@ -216,40 +240,77 @@ export default function DoctorDashboardPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        {/* Queue panel */}
-        <SectionCard title="My Queue" eyebrow={`${activeQueue.length} patient${activeQueue.length !== 1 ? 's' : ''} waiting`}>
+        {/* Assigned patients panel */}
+        <SectionCard title="Assigned Patients" eyebrow={`${activePatients.length} patient${activePatients.length !== 1 ? 's' : ''}`}>
           {loading ? (
-            <LoadingSpinner message="Loading queue..." />
-          ) : activeQueue.length === 0 ? (
+            <LoadingSpinner message="Loading assigned patients..." />
+          ) : activePatients.length === 0 ? (
             <div className="flex h-40 items-center justify-center rounded-2xl border border-dashed border-ink/10 bg-white/30 text-sm text-ink/50">
-              No patients in queue
+              No patients currently assigned to you
             </div>
           ) : (
             <div className="space-y-3">
-              {activeQueue.map((item, idx) => (
-                <div key={item._id} className="flex items-center justify-between rounded-2xl bg-white/70 p-4 ring-1 ring-ink/10">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-teal/10 font-display text-lg font-bold text-teal">
-                      {item.tokenNumber.split('-').pop()}
+              {activePatients.map((item) => (
+                <div key={item._id} className="rounded-2xl bg-white/70 ring-1 ring-ink/10 overflow-hidden">
+                  <div className="flex items-center justify-between p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-teal/10 font-display text-lg font-bold text-teal">
+                        {item.tokenNumber.split('-').pop()}
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-semibold">{item.patientId?.fullName || 'Unknown'}</h4>
+                        <p className="text-xs text-ink/50">
+                          {item.patientId?.patientCode} {item.appointmentId?.slotStart ? `- ${new Date(item.appointmentId.slotStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="text-sm font-semibold">{item.patientId?.fullName || 'Unknown'}</h4>
-                      <p className="text-xs text-ink/50">Wait: {item.estimatedWaitMinutes}m</p>
+                    <div className="flex items-center gap-2">
+                      <StatusBadge status={item.priorityLevel} />
+                      {item.queueStatus === 'in_consultation' ? (
+                        <StatusBadge status="in_consultation" label="In Session" />
+                      ) : !activeConsultation && !showRxForm ? (
+                        <button
+                          onClick={() => startConsultation(item._id)}
+                          className="rounded-full bg-ink px-4 py-2 text-xs font-semibold text-white hover:bg-ink/90"
+                        >
+                          Start Consultation
+                        </button>
+                      ) : (
+                        <StatusBadge status={item.queueStatus} />
+                      )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <StatusBadge status={item.priorityLevel} />
-                    {item.queueStatus === 'in_consultation' ? (
-                      <StatusBadge status="in_consultation" label="In Session" />
-                    ) : idx === 0 && !activeConsultation && !showRxForm ? (
-                      <button
-                        onClick={() => startConsultation(item._id)}
-                        className="rounded-full bg-ink px-4 py-2 text-xs font-semibold text-white hover:bg-ink/90"
-                      >
-                        Call Next
-                      </button>
-                    ) : (
-                      <StatusBadge status={item.queueStatus} />
+
+                  {/* Patient history toggle */}
+                  <div className="border-t border-ink/5 px-4 py-2">
+                    <button
+                      onClick={() => viewPatientHistory(item.patientId?._id)}
+                      className="text-xs font-medium text-teal hover:underline"
+                    >
+                      {expandedPatient === item.patientId?._id ? 'Hide History' : 'View Medical History'}
+                    </button>
+                    {expandedPatient === item.patientId?._id && (
+                      <div className="mt-2 space-y-2">
+                        {historyLoading ? (
+                          <p className="text-xs text-ink/40">Loading...</p>
+                        ) : patientHistory.length === 0 ? (
+                          <p className="text-xs text-ink/40">No previous prescriptions found.</p>
+                        ) : (
+                          patientHistory.slice(0, 5).map(rx => (
+                            <div key={rx._id} className="rounded-lg bg-canvas/50 p-2.5">
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <p className="text-xs font-medium">{rx.diagnosis || 'No diagnosis'}</p>
+                                  <p className="text-[10px] text-ink/40">
+                                    {rx.medicines?.length || 0} medicine{(rx.medicines?.length || 0) !== 1 ? 's' : ''} - {new Date(rx.createdAt).toLocaleDateString()}
+                                  </p>
+                                </div>
+                                <span className="font-mono text-[10px] text-ink/30">{rx.prescriptionNumber}</span>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -261,7 +322,7 @@ export default function DoctorDashboardPage() {
         {/* Right panel: consultation or prescription */}
         <div className="space-y-6">
           {showRxForm ? (
-            /* ── Prescription Form ── */
+            /* ── Prescription Form (Manual) ── */
             <SectionCard title="Write Prescription" eyebrow="Post-consultation">
               <form onSubmit={submitPrescription} className="space-y-4 rounded-2xl bg-white/70 p-5 ring-1 ring-ink/10">
                 <div>
@@ -287,7 +348,7 @@ export default function DoctorDashboardPage() {
                   />
                 </div>
 
-                {/* Medicines */}
+                {/* Medicines (manual input) */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-sm font-medium text-ink">Medicines *</label>
@@ -387,17 +448,24 @@ export default function DoctorDashboardPage() {
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-coral opacity-75" />
                     <span className="relative inline-flex h-3 w-3 rounded-full bg-coral" />
                   </span>
-                  <h3 className="font-display text-lg text-coral">In progress</h3>
+                  <h3 className="font-display text-lg text-coral">Consultation in progress</h3>
+                </div>
+
+                <div className="rounded-xl bg-canvas/50 p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-ink/40">Patient</p>
+                  <p className="mt-0.5 text-sm font-medium">
+                    {activeConsultation.patientId?.fullName || 'Patient'}
+                  </p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-ink">Clinical Notes</label>
+                  <label className="block text-sm font-medium text-ink">Observations & Clinical Notes</label>
                   <textarea
                     rows={5}
                     className="mt-1.5 block w-full rounded-xl border-0 p-3 text-sm ring-1 ring-inset ring-ink/10 focus:ring-2 focus:ring-ink bg-white"
                     value={consultationNotes}
                     onChange={e => setConsultationNotes(e.target.value)}
-                    placeholder="Examination findings, observations..."
+                    placeholder="Symptoms discussed, examination findings, observations..."
                   />
                 </div>
 
@@ -405,15 +473,16 @@ export default function DoctorDashboardPage() {
                   onClick={finishConsultation}
                   className="w-full rounded-xl bg-coral px-4 py-3 text-sm font-semibold text-white hover:bg-coral/90"
                 >
-                  Complete Consultation
+                  Mark Consultation Complete
                 </button>
               </div>
             </SectionCard>
           ) : (
             /* ── Empty state ── */
             <SectionCard title="Consultation" eyebrow="Session">
-              <div className="flex h-48 items-center justify-center rounded-2xl border border-dashed border-ink/10 bg-white/30 text-sm text-ink/50">
-                Call the next patient to begin
+              <div className="flex h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-ink/10 bg-white/30 text-sm text-ink/50 gap-2">
+                <p>Select a patient to begin consultation</p>
+                <p className="text-[10px] text-ink/30">Only patients assigned to you appear here</p>
               </div>
             </SectionCard>
           )}

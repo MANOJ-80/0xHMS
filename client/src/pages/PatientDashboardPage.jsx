@@ -11,7 +11,6 @@ import toast from 'react-hot-toast'
 export default function PatientDashboardPage() {
   const { user } = useAuth()
   const [appointments, setAppointments] = useState([])
-  const [queueTokens, setQueueTokens] = useState([])
   const [departments, setDepartments] = useState([])
   const [doctors, setDoctors] = useState([])
   const [prescriptions, setPrescriptions] = useState([])
@@ -27,29 +26,29 @@ export default function PatientDashboardPage() {
 
   const [bookLoading, setBookLoading] = useState(false)
   const [cancelTarget, setCancelTarget] = useState(null)
+  const [selectedRx, setSelectedRx] = useState(null)
 
   const patientId = user?.linkedPatientId
 
   const fetchData = async () => {
     if (!patientId) return
     try {
-      const [aptData, queueData, deptData, docData, rxData, notifData] = await Promise.all([
+      const [aptData, deptData, docData, rxData, notifData] = await Promise.all([
         apiFetch(`/appointments?patientId=${patientId}`),
-        apiFetch(`/queue/tokens?patientId=${patientId}`),
         apiFetch('/departments'),
         apiFetch('/doctors'),
         apiFetch(`/prescriptions/patient/${patientId}`).catch(() => ({ prescriptions: [] })),
         apiFetch(`/notifications?patientId=${patientId}`).catch(() => ({ notifications: [] })),
       ])
       setAppointments(aptData.appointments || [])
-      setQueueTokens(queueData.queueTokens || [])
       setDepartments(deptData.departments || [])
       setDoctors(docData.doctors || [])
-      setPrescriptions((rxData.prescriptions || []).slice(0, 3))
+      setPrescriptions(rxData.prescriptions || [])
       setNotifications((notifData.notifications || []).slice(0, 5))
 
-      if (deptData.departments?.length > 0 && !bookData.departmentId) {
-        setBookData(prev => ({ ...prev, departmentId: deptData.departments[0]._id }))
+      // Only set default department on initial load (not on polling refreshes)
+      if (deptData.departments?.length > 0) {
+        setBookData(prev => prev.departmentId ? prev : { ...prev, departmentId: deptData.departments[0]._id })
       }
     } catch (err) {
       toast.error(err.message)
@@ -116,12 +115,12 @@ export default function PatientDashboardPage() {
     }
   }
 
-  if (user?.role !== 'patient' && !patientId) {
+  if (user?.role !== 'patient' || !patientId) {
     return <div className="p-8 text-center text-ink/60">Patient profile not found.</div>
   }
 
-  const activeTokens = queueTokens.filter(q => q.queueStatus !== 'completed' && q.queueStatus !== 'missed')
   const upcomingApts = appointments.filter(a => a.status === 'scheduled')
+  const checkedInApts = appointments.filter(a => a.status === 'checked_in')
 
   if (pageLoading) {
     return <LoadingSpinner message="Loading your dashboard..." fullPage />
@@ -144,50 +143,32 @@ export default function PatientDashboardPage() {
           Welcome{user?.fullName ? `, ${user.fullName.split(' ')[0]}` : ''}
         </h1>
 
-        {/* Live queue status */}
-        <SectionCard title="Live Queue Status" eyebrow="Your visit today">
-          {activeTokens.length === 0 ? (
-            <div className="rounded-2xl bg-canvas/70 p-6 text-center text-sm text-ink/50 ring-1 ring-ink/5">
-              You are not currently checked into any queue.
-            </div>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {activeTokens.map(token => (
-                <div key={token._id} className="relative overflow-hidden rounded-2xl bg-white/70 p-5 ring-1 ring-ink/10">
-                  {token.priorityLevel === 'urgent' && (
-                    <div className="absolute top-0 right-0 rounded-bl-xl bg-coral px-3 py-1 text-[10px] font-bold text-white">
-                      URGENT
-                    </div>
-                  )}
+        {/* Active visit status (checked-in appointments) */}
+        {checkedInApts.length > 0 && (
+          <SectionCard title="Active Visit" eyebrow="Today">
+            <div className="space-y-3">
+              {checkedInApts.map(apt => (
+                <div key={apt._id} className="relative overflow-hidden rounded-2xl bg-teal/5 p-5 ring-1 ring-teal/20">
                   <div className="flex items-center gap-4">
-                    <div className="flex h-14 w-14 flex-col items-center justify-center rounded-2xl bg-teal/10 text-teal">
-                      <span className="text-[10px] font-semibold uppercase tracking-widest opacity-80">Token</span>
-                      <span className="font-display text-xl font-bold">{token.tokenNumber.split('-').pop()}</span>
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-teal/10 text-teal">
+                      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
                     </div>
                     <div>
                       <h3 className="text-sm font-semibold">
-                        {token.assignedDoctorId?.fullName ? `Dr. ${token.assignedDoctorId.fullName}` : 'Assigning doctor...'}
+                        You are checked in{apt.doctorId?.fullName ? ` with Dr. ${apt.doctorId.fullName}` : ''}
                       </h3>
                       <p className="text-xs text-ink/50">
-                        {token.assignedDoctorId?.consultationRoom ? `Room: ${token.assignedDoctorId.consultationRoom}` : 'Please wait'}
+                        Please wait for the doctor to call you for your consultation.
                       </p>
-                    </div>
-                  </div>
-                  <div className="mt-4 grid grid-cols-2 gap-3">
-                    <div className="rounded-xl bg-canvas/50 p-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-ink/40">Status</p>
-                      <div className="mt-1"><StatusBadge status={token.queueStatus} /></div>
-                    </div>
-                    <div className="rounded-xl bg-canvas/50 p-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-ink/40">Est. Wait</p>
-                      <p className="mt-1 text-sm font-medium">{token.estimatedWaitMinutes || 0} min</p>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
-          )}
-        </SectionCard>
+          </SectionCard>
+        )}
 
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Upcoming appointments */}
@@ -200,7 +181,7 @@ export default function PatientDashboardPage() {
                   <div key={apt._id} className="flex items-center justify-between rounded-2xl bg-white/70 p-4 ring-1 ring-ink/10">
                     <div>
                       <h4 className="text-sm font-semibold">
-                        {apt.doctorId ? `Dr. ${apt.doctorId.fullName}` : 'Any Available Doctor'}
+                        {apt.doctorId ? `Dr. ${apt.doctorId.fullName}` : 'Doctor to be assigned at check-in'}
                       </h4>
                       <p className="text-xs text-ink/50">
                         {new Date(apt.slotStart).toLocaleDateString()} at{' '}
@@ -235,14 +216,18 @@ export default function PatientDashboardPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-ink/70">Doctor (Optional)</label>
+                <label className="block text-xs font-medium text-ink/70">Preferred Doctor (optional)</label>
                 <select
                   className="mt-1 block w-full rounded-xl border-0 p-2.5 text-sm ring-1 ring-inset ring-ink/10 bg-white"
                   value={bookData.doctorId}
                   onChange={e => setBookData({ ...bookData, doctorId: e.target.value })}
                 >
-                  <option value="">Any Available</option>
-                  {doctors.map(d => <option key={d._id} value={d._id}>{d.fullName}</option>)}
+                  <option value="">No preference</option>
+                  {doctors.map(d => (
+                    <option key={d._id} value={d._id}>
+                      {d.fullName} - {d.specialization}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -280,14 +265,20 @@ export default function PatientDashboardPage() {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          {/* Recent prescriptions */}
-          <SectionCard title="Recent Prescriptions" eyebrow="Medical records">
+          {/* Prescriptions with detail view */}
+          <SectionCard title="My Prescriptions" eyebrow="Medical records">
             {prescriptions.length === 0 ? (
               <p className="py-4 text-center text-sm text-ink/50">No prescriptions yet.</p>
             ) : (
               <div className="space-y-3">
-                {prescriptions.map(rx => (
-                  <div key={rx._id} className="rounded-2xl bg-white/70 p-4 ring-1 ring-ink/10">
+                {prescriptions.slice(0, 5).map(rx => (
+                  <button
+                    key={rx._id}
+                    onClick={() => setSelectedRx(selectedRx?._id === rx._id ? null : rx)}
+                    className={`w-full text-left rounded-2xl bg-white/70 p-4 ring-1 transition ${
+                      selectedRx?._id === rx._id ? 'ring-teal/40 shadow-sm' : 'ring-ink/10 hover:shadow-sm'
+                    }`}
+                  >
                     <div className="flex items-start justify-between">
                       <div>
                         <p className="font-mono text-[10px] text-ink/40">{rx.prescriptionNumber}</p>
@@ -308,8 +299,34 @@ export default function PatientDashboardPage() {
                         )}
                       </div>
                     )}
-                  </div>
+
+                    {/* Expanded prescription detail */}
+                    {selectedRx?._id === rx._id && (
+                      <div className="mt-3 border-t border-ink/5 pt-3 space-y-2">
+                        {rx.medicines?.map((med, i) => (
+                          <div key={i} className="rounded-lg bg-canvas/50 p-2.5">
+                            <p className="text-xs font-medium">{med.medicineName}</p>
+                            <p className="text-[10px] text-ink/50">
+                              {med.dosage} - {med.frequency} - {med.duration}
+                              {med.route ? ` (${med.route})` : ''}
+                            </p>
+                            {med.specialInstructions && (
+                              <p className="text-[10px] text-ink/40 italic mt-0.5">{med.specialInstructions}</p>
+                            )}
+                          </div>
+                        ))}
+                        {rx.treatmentNotes && (
+                          <p className="text-xs text-ink/60 italic">{rx.treatmentNotes}</p>
+                        )}
+                      </div>
+                    )}
+                  </button>
                 ))}
+                {prescriptions.length > 5 && (
+                  <p className="text-center text-xs text-ink/40">
+                    View all prescriptions in the Prescriptions page
+                  </p>
+                )}
               </div>
             )}
           </SectionCard>

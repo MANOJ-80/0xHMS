@@ -4,7 +4,7 @@ import { requireAuth, requireRole } from '../middleware/auth.js'
 
 const router = Router()
 
-router.get('/overview', getOverview)
+router.get('/overview', requireAuth, requireRole('admin', 'receptionist', 'doctor'), getOverview)
 router.get('/dashboard', requireAuth, requireRole('admin'), getDashboardReport)
 
 export default router

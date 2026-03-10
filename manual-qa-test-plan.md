@@ -12,7 +12,7 @@
 8. [TC-5: Doctors Page (Admin/Receptionist)](#tc-5-doctors-page)
 9. [TC-6: Check-In Page (Admin/Receptionist)](#tc-6-check-in-page)
 10. [TC-7: Appointments Page (Admin/Receptionist/Doctor)](#tc-7-appointments-page)
-11. [TC-8: Queue Board Page](#tc-8-queue-board-page)
+11. [TC-8: Doctor Assignment & Patient Lock](#tc-8-doctor-assignment--patient-lock)
 12. [TC-9: Doctor Dashboard](#tc-9-doctor-dashboard)
 13. [TC-10: Patient Dashboard](#tc-10-patient-dashboard)
 14. [TC-11: Notifications Page](#tc-11-notifications-page)
@@ -114,7 +114,7 @@ All accounts are created by the seed script (`npm run seed`).
 | 2 | Wait for login to complete | Toast success: "Welcome back!" | |
 | 3 | Observe redirect | Redirected to `/` (Overview/Dashboard page) | |
 | 4 | Check sidebar | Sidebar shows "SPCMS" branding, role "Administrator", user name "System Admin" | |
-| 5 | Check sidebar nav items | Shows: Overview, Check-in, Appointments, Queue Board, Patients, Doctors, Notifications, Prescriptions (8 items) | |
+| 5 | Check sidebar nav items | Shows: Overview, Check-in, Appointments, Patients, Doctors, Notifications, Prescriptions (7 items) | |
 
 ### TC-1.3: Successful Login (Receptionist)
 
@@ -129,7 +129,7 @@ All accounts are created by the seed script (`npm run seed`).
 | # | Step | Expected Result | Pass/Fail |
 |---|------|-----------------|-----------|
 | 1 | Log out and login as `arun.rao@spcms.local` / `Doctor@123` | Redirected to `/doctor-dashboard` | |
-| 2 | Check sidebar nav items | Shows: Dashboard, Appointments, Queue Board, Prescriptions, Notifications (5 items) | |
+| 2 | Check sidebar nav items | Shows: Dashboard, Appointments, Prescriptions, Notifications (4 items) | |
 | 3 | Check role label | "Doctor" displayed under name | |
 
 ### TC-1.5: Successful Login (Patient)
@@ -364,12 +364,11 @@ All accounts are created by the seed script (`npm run seed`).
 |---|------|-----------------|-----------|
 | 1 | Select patient: John Doe | Selected in dropdown | |
 | 2 | Select department: Outpatient Department | Selected | |
-| 3 | Leave specialization as default, doctor as "Auto-assign" | Defaults accepted | |
+| 3 | Select doctor: Dr. Arun Rao (mandatory) | Doctor selected in dropdown | |
 | 4 | Leave urgency as "normal", walk-in checked | Defaults accepted | |
 | 5 | Click "Check In Patient" | Button shows "Checking in..." | |
-| 6 | Wait for response | Toast success: "Checked in! Token: {tokenNumber}" (e.g., "A-xxx-001") | |
-| 7 | After ~1.5 seconds | Auto-navigated to `/queue-board` | |
-| 8 | Verify token on queue board | New token visible with John Doe's name, assigned doctor, "waiting" or "assigned" status | |
+| 6 | Wait for response | Toast success: "Checked in! Token: {tokenNumber}" (e.g., "A-xxx-001") with Dr. Arun Rao assigned | |
+| 7 | Verify assignment | Login as Dr. Arun Rao; John Doe appears in "My Patients" with "assigned" status | |
 
 ### TC-6.6: Urgent Check-In
 
@@ -378,7 +377,7 @@ All accounts are created by the seed script (`npm run seed`).
 | 1 | Navigate back to Check-in | Form is reset | |
 | 2 | Select patient: Jane Smith, department, urgency: "urgent" | Form filled | |
 | 3 | Submit check-in | Toast success with token (should start with "U-" prefix for urgent) | |
-| 4 | Check queue board | Jane Smith's token shows "urgent" badge, appears before normal-priority tokens | |
+| 4 | Check on assigned doctor's dashboard | Jane Smith's token shows "urgent" badge, appears before normal-priority tokens in "My Patients" | |
 
 ### TC-6.7: Check-In with Preferred Doctor
 
@@ -389,7 +388,7 @@ All accounts are created by the seed script (`npm run seed`).
 | 3 | Select specialization: "Cardiology" | Doctor dropdown filters | |
 | 4 | Select preferred doctor: Dr. Sara Iqbal | Selected | |
 | 5 | Submit | Token assigned to Dr. Sara Iqbal specifically | |
-| 6 | Verify on queue board | Alice Johnson's token shows Dr. Sara Iqbal as assigned doctor | |
+| 6 | Verify on Dr. Sara Iqbal's dashboard | Login as Dr. Sara Iqbal; Alice Johnson appears in "My Patients" as an assigned patient | |
 
 ---
 
@@ -475,52 +474,47 @@ All accounts are created by the seed script (`npm run seed`).
 
 ---
 
-## TC-8: Queue Board Page
+## TC-8: Doctor Assignment & Patient Lock
 
-**Login as: Admin, Receptionist, or Doctor**
+**Login as: Admin or Receptionist (for check-in); Doctor (to verify)**
 
-### TC-8.1: Page Load
-
-| # | Step | Expected Result | Pass/Fail |
-|---|------|-----------------|-----------|
-| 1 | Click "Queue Board" in sidebar | Loading spinner: "Loading queue..." | |
-| 2 | Data loads | Queue token cards in a grid (4 columns on large screens) | |
-| 3 | Live indicator | Pulsing green dot with "Live" text in top-right area | |
-
-### TC-8.2: Queue Token Cards
+### TC-8.1: Explicit Doctor Assignment at Check-In
 
 | # | Step | Expected Result | Pass/Fail |
 |---|------|-----------------|-----------|
-| 1 | Each card shows | Token number (large, display font), status badge, doctor name, patient name | |
-| 2 | Doctor display | "Dr. {name}" or "Awaiting assignment" if none | |
-| 3 | Urgent tokens | Show "urgent" badge; card has coral ring | |
-| 4 | "In consultation" tokens | Card has coral ring | |
-| 5 | Estimated wait | Shows "~{N}m wait" | |
+| 1 | Navigate to Check-in page | Check-in form loads with doctor dropdown | |
+| 2 | Select a patient and department | Form fields populated | |
+| 3 | Observe doctor dropdown | Lists available doctors with availability status; no "Auto-assign" option | |
+| 4 | Attempt to submit without selecting a doctor | Toast error: doctor selection is required | |
+| 5 | Select Dr. Arun Rao and submit | Toast success: "Checked in! Token: ..." with Dr. Arun Rao assigned | |
 
-### TC-8.3: Filter Bar
-
-| # | Step | Expected Result | Pass/Fail |
-|---|------|-----------------|-----------|
-| 1 | Default filter | "All" button is active (dark background) | |
-| 2 | Filter buttons | "all", "waiting", "in_consultation", "completed", "missed" (only shown if count > 0) | |
-| 3 | Click "waiting" | Only waiting tokens shown; button shows count | |
-| 4 | Click "in consultation" | Only in-consultation tokens shown | |
-| 5 | Click "all" | All tokens shown again | |
-
-### TC-8.4: Empty States
+### TC-8.2: Patient Visible Only to Assigned Doctor
 
 | # | Step | Expected Result | Pass/Fail |
 |---|------|-----------------|-----------|
-| 1 | If no tokens at all (fresh database) | "No active tokens in the queue." | |
-| 2 | Apply a filter with zero matching tokens | "No {filter_name} tokens." | |
+| 1 | Login as Dr. Arun Rao (the assigned doctor) | Doctor Dashboard loads | |
+| 2 | Check "My Patients" panel | The checked-in patient appears in the queue | |
+| 3 | Login as Dr. Sara Iqbal (a different doctor) | Doctor Dashboard loads | |
+| 4 | Check "My Patients" panel | The patient does NOT appear — doctors only see their own assigned patients | |
 
-### TC-8.5: Real-Time Updates
+### TC-8.3: Multiple Assignments to Different Doctors
 
 | # | Step | Expected Result | Pass/Fail |
 |---|------|-----------------|-----------|
-| 1 | Keep queue board open in one tab | Board visible | |
-| 2 | In another tab (admin), check in a new patient | Queue board should auto-update within 5 seconds (polling) or instantly (Socket.IO) | |
-| 3 | Verify new token appears | New token card visible without manual refresh | |
+| 1 | (Receptionist) Check in Patient A assigned to Dr. Arun Rao | Token created for Dr. Arun Rao | |
+| 2 | (Receptionist) Check in Patient B assigned to Dr. Sara Iqbal | Token created for Dr. Sara Iqbal | |
+| 3 | Login as Dr. Arun Rao | Only Patient A visible in "My Patients" | |
+| 4 | Login as Dr. Sara Iqbal | Only Patient B visible in "My Patients" | |
+
+### TC-8.4: Prescription Access Control
+
+| # | Step | Expected Result | Pass/Fail |
+|---|------|-----------------|-----------|
+| 1 | Login as receptionist | Sidebar loads | |
+| 2 | Check sidebar nav items | "Prescriptions" is NOT listed for receptionist role | |
+| 3 | Manually navigate to `/prescriptions` | Redirected to receptionist home (`/`) — access denied | |
+| 4 | Login as doctor | "Prescriptions" IS listed in sidebar | |
+| 5 | Login as patient | "Prescriptions" IS listed in sidebar (own prescriptions only) | |
 
 ---
 
@@ -576,7 +570,7 @@ All accounts are created by the seed script (`npm run seed`).
 | 4 | Patient details in panel | Patient name shown in consultation panel | |
 | 5 | Clinical notes textarea | Empty textarea with placeholder "Examination findings, observations..." | |
 | 6 | "Complete Consultation" button | Visible, coral background | |
-| 7 | Queue board (other tab) | Token shows "in_consultation" status | |
+| 7 | Doctor Dashboard "My Patients" | Token shows "in_consultation" status | |
 
 ### TC-9.6: Complete Consultation
 
@@ -846,13 +840,13 @@ This section tests the complete patient consultation journey across multiple rol
 | 3 | (B) Login as Dr. Arun Rao | Lands on Doctor Dashboard | |
 | 4 | (B) Verify availability is "available" | Green button active | |
 | 5 | (A) Go to Check-in, check in John Doe for Outpatient Dept | Toast: "Checked in! Token: ..." | |
-| 6 | (A) Auto-navigated to Queue Board | John Doe's token visible with Dr. Arun Rao assigned | |
+| 6 | (A) Check-in confirmed | Toast confirms token with Dr. Arun Rao assigned | |
 | 7 | (B) Doctor Dashboard auto-updates | John Doe appears in "My Queue" | |
 | 8 | (B) Click "Call Next" | Toast: "Consultation started"; active consultation panel appears | |
-| 9 | (A) Queue Board shows | Token status changes to "in_consultation" | |
+| 9 | (B) Doctor Dashboard shows | Token status changes to "in_consultation" in "My Patients" | |
 | 10 | (B) Enter clinical notes: "Patient has mild fever" | Notes entered | |
 | 11 | (B) Click "Complete Consultation" | Toast: "Consultation completed"; prescription form appears | |
-| 12 | (A) Queue Board shows | Token status changes to "completed" | |
+| 12 | (B) Doctor Dashboard shows | Token status changes to "completed" in "My Patients" | |
 | 13 | (B) Fill prescription: diagnosis "Viral fever", medicine "Paracetamol 500mg, thrice daily, 5 days" | Form filled | |
 | 14 | (B) Click "Save Prescription" | Toast: "Prescription created and patient notified" | |
 | 15 | Open patient login (`john.doe@example.com`) in new tab | Patient dashboard shows | |
@@ -878,7 +872,7 @@ This section tests the complete patient consultation journey across multiple rol
 | 1 | (A) Check in a normal patient first | Token in queue | |
 | 2 | (A) Check in an urgent patient second | Urgent token created | |
 | 3 | (B) Doctor Dashboard queue | Urgent patient appears BEFORE the normal patient despite being checked in later | |
-| 4 | Queue Board | Urgent token has "urgent" badge and coral ring | |
+| 4 | Doctor Dashboard | Urgent token has "urgent" badge and coral ring in "My Patients" | |
 
 ---
 
@@ -888,16 +882,16 @@ This section tests the complete patient consultation journey across multiple rol
 
 | # | Step | Expected Result | Pass/Fail |
 |---|------|-----------------|-----------|
-| 1 | Open Queue Board page | "Live" indicator visible (pulsing green dot) | |
+| 1 | Open Doctor Dashboard page | Dashboard visible with "My Patients" section | |
 | 2 | Open browser DevTools > Network > WS tab | Socket.IO WebSocket connection visible (or polling transport) | |
 
 ### TC-14.2: Cross-Tab Queue Updates
 
 | # | Step | Expected Result | Pass/Fail |
 |---|------|-----------------|-----------|
-| 1 | Tab 1: Queue Board open (admin) | Board visible | |
-| 2 | Tab 2: Check in a patient (receptionist) | Perform check-in | |
-| 3 | Tab 1: Without refreshing | New token appears on Queue Board (within 5 seconds) | |
+| 1 | Tab 1: Doctor Dashboard open (doctor login) | Dashboard visible | |
+| 2 | Tab 2: Check in a patient assigned to this doctor (receptionist) | Perform check-in | |
+| 3 | Tab 1: Without refreshing | New patient appears in "My Patients" (within 5 seconds) | |
 
 ### TC-14.3: Doctor Dashboard Real-Time
 
@@ -950,7 +944,7 @@ This section tests the complete patient consultation journey across multiple rol
 | 4 | Navigate to `/patients` | Redirected to `/doctor-dashboard` | |
 | 5 | Navigate to `/doctors` | Redirected to `/doctor-dashboard` | |
 | 6 | Navigate to `/appointments` | Allowed (doctors have access) | |
-| 7 | Navigate to `/queue-board` | Allowed | |
+| 7 | Navigate to `/queue-board` | Redirected to `/doctor-dashboard` (page no longer exists) | |
 | 8 | Navigate to `/patient-dashboard` | Redirected to `/doctor-dashboard` | |
 
 ### TC-15.3: URL Direct Access (as Receptionist)
@@ -1043,9 +1037,9 @@ This section tests the complete patient consultation journey across multiple rol
 
 | # | Step | Expected Result | Pass/Fail |
 |---|------|-----------------|-----------|
-| 1 | Queue Board at full width | 4 columns of token cards | |
-| 2 | Queue Board at ~768px | 2 columns | |
-| 3 | Queue Board at ~480px | 1 column | |
+| 1 | Doctor Dashboard "My Patients" at full width | Queue items laid out in available space | |
+| 2 | Doctor Dashboard "My Patients" at ~768px | Items stack or reflow to fit | |
+| 3 | Doctor Dashboard "My Patients" at ~480px | Single column, full width | |
 | 4 | Doctor cards at full width | 3 columns | |
 | 5 | Doctor cards at ~768px | 2 columns | |
 | 6 | Doctor cards at ~480px | 1 column | |
@@ -1093,7 +1087,7 @@ These are known behaviors that testers should be aware of (not necessarily bugs)
 
 7. **No Scheduled Notification Processor**: The notification model supports `scheduledFor` field, but there is no background scheduler to process future-scheduled notifications.
 
-8. **Socket.IO Errors Silent**: If Socket.IO connection fails, the app silently falls back to REST polling. There is no user-visible indicator of degraded real-time capability (the "Live" indicator on Queue Board is always shown).
+8. **Socket.IO Errors Silent**: If Socket.IO connection fails, the app silently falls back to REST polling. There is no user-visible indicator of degraded real-time capability (the "Live" indicator on Doctor Dashboard is always shown).
 
 ---
 
@@ -1109,7 +1103,7 @@ These are known behaviors that testers should be aware of (not necessarily bugs)
 | TC-5: Doctors | | | |
 | TC-6: Check-In | | | |
 | TC-7: Appointments | | | |
-| TC-8: Queue Board | | | |
+| TC-8: Doctor Assignment & Patient Lock | | | |
 | TC-9: Doctor Dashboard | | | |
 | TC-10: Patient Dashboard | | | |
 | TC-11: Notifications | | | |
