@@ -40,6 +40,17 @@ export function AuthProvider({ children }) {
     return data.user
   }
 
+  const register = async ({ fullName, email, phone, password, dateOfBirth, gender }) => {
+    const data = await apiFetch('/auth/register-patient', {
+      method: 'POST',
+      body: JSON.stringify({ fullName, email, phone, password, dateOfBirth, gender }),
+    })
+
+    localStorage.setItem('accessToken', data.tokens.accessToken)
+    setUser(data.user)
+    return data.user
+  }
+
   const logout = () => {
     disconnectSocket()
     localStorage.removeItem('accessToken')
@@ -47,7 +58,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   )

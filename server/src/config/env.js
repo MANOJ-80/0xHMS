@@ -26,4 +26,7 @@ export const env = {
   whatsappProviderEnabled: process.env.WHATSAPP_PROVIDER_ENABLED === 'true',
   smsFromNumber: process.env.SMS_FROM_NUMBER || '',
   whatsappFromNumber: process.env.WHATSAPP_FROM_NUMBER || '',
+
+  // Fast2SMS
+  fast2smsApiKey: process.env.FAST2SMS_API_KEY || '',
 }

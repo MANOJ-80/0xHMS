@@ -5,11 +5,13 @@ import AppointmentsPage from './pages/AppointmentsPage'
 import PatientsPage from './pages/PatientsPage'
 import DoctorsPage from './pages/DoctorsPage'
 import LoginPage from './pages/LoginPage'
+import RegisterPage from './pages/RegisterPage'
 import CheckinPage from './pages/CheckinPage'
 import DoctorDashboardPage from './pages/DoctorDashboardPage'
 import PatientDashboardPage from './pages/PatientDashboardPage'
 import NotificationsPage from './pages/NotificationsPage'
 import PrescriptionsPage from './pages/PrescriptionsPage'
+import ProfilePage from './pages/ProfilePage'
 import RoleGuard from './components/RoleGuard'
 import { useAuth } from './components/AuthProvider'
 import { useState } from 'react'
@@ -61,6 +63,11 @@ const icons = {
       <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
     </svg>
   ),
+  profile: (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+    </svg>
+  ),
 }
 
 function getNavItems(role) {
@@ -73,6 +80,7 @@ function getNavItems(role) {
       { to: '/doctors', label: 'Doctors', icon: icons.doctors },
       { to: '/prescriptions', label: 'Prescriptions', icon: icons.prescriptions },
       { to: '/notifications', label: 'Notifications', icon: icons.notifications },
+      { to: '/profile', label: 'Profile', icon: icons.profile },
     ]
   }
   if (role === 'receptionist') {
@@ -83,6 +91,7 @@ function getNavItems(role) {
       { to: '/patients', label: 'Patients', icon: icons.patients },
       { to: '/doctors', label: 'Doctors', icon: icons.doctors },
       { to: '/notifications', label: 'Notifications', icon: icons.notifications },
+      { to: '/profile', label: 'Profile', icon: icons.profile },
     ]
   }
   if (role === 'doctor') {
@@ -90,6 +99,7 @@ function getNavItems(role) {
       { to: '/doctor-dashboard', label: 'Dashboard', icon: icons.dashboard },
       { to: '/prescriptions', label: 'Prescriptions', icon: icons.prescriptions },
       { to: '/notifications', label: 'Notifications', icon: icons.notifications },
+      { to: '/profile', label: 'Profile', icon: icons.profile },
     ]
   }
   if (role === 'patient') {
@@ -97,6 +107,7 @@ function getNavItems(role) {
       { to: '/patient-dashboard', label: 'My Dashboard', icon: icons.dashboard },
       { to: '/prescriptions', label: 'Prescriptions', icon: icons.prescriptions },
       { to: '/notifications', label: 'Notifications', icon: icons.notifications },
+      { to: '/profile', label: 'Profile', icon: icons.profile },
     ]
   }
   return []
@@ -126,6 +137,7 @@ export default function App() {
         <Toaster position="top-right" toastOptions={{ className: 'text-sm font-body', duration: 4000 }} />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </>
@@ -252,6 +264,7 @@ export default function App() {
                 {/* Shared pages */}
                 <Route path="/notifications" element={<NotificationsPage />} />
                 <Route path="/prescriptions" element={<RoleGuard roles={['admin', 'doctor', 'patient']}><PrescriptionsPage /></RoleGuard>} />
+                <Route path="/profile" element={<ProfilePage />} />
 
                 {/* Fallback */}
                 <Route path="*" element={<Navigate to={homeRoute} replace />} />

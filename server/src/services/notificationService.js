@@ -94,19 +94,49 @@ export function buildCancellationMessage({ patientName, doctorName, appointmentD
 // ---------------------------------------------------------------------------
 
 async function sendViaSms(recipient, message) {
-  // Integration point for SMS provider (e.g., Twilio, MSG91, AWS SNS)
-  // For now, log the message and return a mock response
   const providerEnabled = env.smsProviderEnabled
-  if (providerEnabled) {
-    // TODO: Replace with actual SMS API call
-    // const response = await twilioClient.messages.create({
-    //   body: message,
-    //   to: recipient,
-    //   from: env.smsFromNumber,
-    // })
-    // return { success: true, providerMessageId: response.sid }
+  const apiKey = env.fast2smsApiKey
+
+  if (providerEnabled && apiKey) {
+    // Strip +91 or leading 0 — Fast2SMS expects 10-digit Indian numbers
+    const phone = recipient.replace(/^(\+91|91|0)/, '').trim()
+    if (phone.length !== 10 || !/^\d{10}$/.test(phone)) {
+      console.warn(`[SMS] Invalid Indian phone number: ${recipient}`)
+      return { success: false, providerMessageId: null }
+    }
+
+    try {
+      const res = await fetch('https://www.fast2sms.com/dev/bulkV2', {
+        method: 'POST',
+        headers: {
+          'authorization': apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          route: 'q',           // Quick SMS (no DLT registration needed)
+          message,
+          language: 'english',
+          flash: 0,
+          numbers: phone,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (data.return === true) {
+        console.log(`[SMS] Sent to ${phone} via Fast2SMS — request_id: ${data.request_id}`)
+        return { success: true, providerMessageId: data.request_id }
+      }
+
+      console.error(`[SMS] Fast2SMS error:`, data.message || data)
+      return { success: false, providerMessageId: null }
+    } catch (err) {
+      console.error(`[SMS] Fast2SMS request failed:`, err.message)
+      return { success: false, providerMessageId: null }
+    }
   }
 
+  // Fallback: mock when provider is disabled
   console.log(`[SMS] To: ${recipient} | Message: ${message}`)
   return { success: true, providerMessageId: `sms-mock-${Date.now()}` }
 }
