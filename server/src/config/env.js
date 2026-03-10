@@ -27,6 +27,8 @@ export const env = {
   smsFromNumber: process.env.SMS_FROM_NUMBER || '',
   whatsappFromNumber: process.env.WHATSAPP_FROM_NUMBER || '',
 
-  // Fast2SMS
-  fast2smsApiKey: process.env.FAST2SMS_API_KEY || '',
+  // Twilio SMS
+  twilioAccountSid: process.env.TWILIO_ACCOUNT_SID || '',
+  twilioAuthToken: process.env.TWILIO_AUTH_TOKEN || '',
+  twilioFromNumber: process.env.TWILIO_FROM_NUMBER || '',
 }

@@ -11,6 +11,10 @@ const testUri = baseUri.replace(/\/spcms(\?|$)/, '/spcms_test$1')
 
 process.env.MONGODB_URI = testUri
 
+// Force SMS provider off in tests so notifications use the mock sender
+// (avoids Twilio trial "unverified number" failures with fake test phone numbers)
+process.env.SMS_PROVIDER_ENABLED = 'false'
+
 // Connect once before all tests, disconnect after
 beforeAll(async () => {
   if (mongoose.connection.readyState === 0) {

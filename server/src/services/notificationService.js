@@ -95,43 +95,51 @@ export function buildCancellationMessage({ patientName, doctorName, appointmentD
 
 async function sendViaSms(recipient, message) {
   const providerEnabled = env.smsProviderEnabled
-  const apiKey = env.fast2smsApiKey
+  const accountSid = env.twilioAccountSid
+  const authToken = env.twilioAuthToken
+  const fromNumber = env.twilioFromNumber
 
-  if (providerEnabled && apiKey) {
-    // Strip +91 or leading 0 — Fast2SMS expects 10-digit Indian numbers
-    const phone = recipient.replace(/^(\+91|91|0)/, '').trim()
-    if (phone.length !== 10 || !/^\d{10}$/.test(phone)) {
-      console.warn(`[SMS] Invalid Indian phone number: ${recipient}`)
+  if (providerEnabled && accountSid && authToken && fromNumber) {
+    // Normalize to E.164 format for Indian numbers
+    let phone = recipient.replace(/[\s-]/g, '').trim()
+    if (/^\d{10}$/.test(phone)) phone = '+91' + phone
+    else if (/^91\d{10}$/.test(phone)) phone = '+' + phone
+    else if (!/^\+\d{10,15}$/.test(phone)) {
+      console.warn(`[SMS] Invalid phone number: ${recipient}`)
       return { success: false, providerMessageId: null }
     }
 
     try {
-      const res = await fetch('https://www.fast2sms.com/dev/bulkV2', {
-        method: 'POST',
-        headers: {
-          'authorization': apiKey,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          route: 'q',           // Quick SMS (no DLT registration needed)
-          message,
-          language: 'english',
-          flash: 0,
-          numbers: phone,
-        }),
+      const auth = Buffer.from(accountSid + ':' + authToken).toString('base64')
+      const body = new URLSearchParams({
+        To: phone,
+        From: fromNumber,
+        Body: message,
       })
+
+      const res = await fetch(
+        `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Basic ' + auth,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: body.toString(),
+        },
+      )
 
       const data = await res.json()
 
-      if (data.return === true) {
-        console.log(`[SMS] Sent to ${phone} via Fast2SMS — request_id: ${data.request_id}`)
-        return { success: true, providerMessageId: data.request_id }
+      if (data.sid && !data.error_code) {
+        console.log(`[SMS] Sent to ${phone} via Twilio — SID: ${data.sid}`)
+        return { success: true, providerMessageId: data.sid }
       }
 
-      console.error(`[SMS] Fast2SMS error:`, data.message || data)
+      console.error(`[SMS] Twilio error:`, data.message || data)
       return { success: false, providerMessageId: null }
     } catch (err) {
-      console.error(`[SMS] Fast2SMS request failed:`, err.message)
+      console.error(`[SMS] Twilio request failed:`, err.message)
       return { success: false, providerMessageId: null }
     }
   }
