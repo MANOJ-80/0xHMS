@@ -195,11 +195,8 @@ export default function DoctorDashboardPage() {
         method: 'PATCH',
         body: JSON.stringify({ consultationNotes }),
       })
-      toast.success('Consultation completed')
-      setShowRxForm(true) // prompt to write prescription
-      fetchAssignedPatients() // refresh queue to reflect status change
     } catch (err) {
-      toast.error(err.message)
+      console.error('Error completing consultation:', err.message)
     }
   }
 
@@ -280,6 +277,10 @@ export default function DoctorDashboardPage() {
 
     setRxLoading(true)
     try {
+      // First, complete the consultation
+      await finishConsultation()
+
+      // Then save the prescription
       await apiFetch('/prescriptions', {
         method: 'POST',
         body: JSON.stringify({
@@ -291,7 +292,7 @@ export default function DoctorDashboardPage() {
           medicines: validMeds,
         }),
       })
-      toast.success('Prescription saved and patient notified')
+      toast.success('Prescription saved & consultation completed')
       setShowRxForm(false)
       setActiveConsultation(null)
       setConsultationNotes('')
@@ -304,13 +305,14 @@ export default function DoctorDashboardPage() {
     }
   }
 
-  const skipPrescription = () => {
+  const skipPrescription = async () => {
+    await finishConsultation()
     setShowRxForm(false)
     setActiveConsultation(null)
     setConsultationNotes('')
     setRxData({ diagnosis: '', treatmentNotes: '', medicines: [{ ...emptyMedicine }] })
     fetchAssignedPatients()
-    toast('Prescription skipped', { icon: '\u2139\uFE0F' })
+    toast.success('Consultation completed (no prescription)')
   }
 
   if (user?.role !== 'doctor' && user?.role !== 'admin') {
@@ -460,12 +462,43 @@ export default function DoctorDashboardPage() {
           )}
         </SectionCard>
 
-        {/* Right panel: consultation or prescription */}
+        {/* Right panel: consultation + prescription combined */}
         <div className="space-y-6">
-          {showRxForm ? (
-            /* ── Prescription Form (Manual) ── */
-            <SectionCard title="Write Prescription" eyebrow="Post-consultation">
-              <form onSubmit={submitPrescription} className="space-y-4 rounded-2xl bg-white/70 p-5 ring-1 ring-ink/10">
+          {activeConsultation ? (
+            /* ── Active Consultation + Inline Prescription ── */
+            <SectionCard title="Active Consultation" eyebrow="In session">
+              {/* Consultation header */}
+              <div className="space-y-4 rounded-2xl bg-white/70 p-5 ring-1 ring-coral/20">
+                <div className="flex items-center gap-3">
+                  <span className="relative flex h-3 w-3">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-coral opacity-75" />
+                    <span className="relative inline-flex h-3 w-3 rounded-full bg-coral" />
+                  </span>
+                  <h3 className="font-display text-lg text-coral">Consultation in progress</h3>
+                </div>
+
+                <div className="rounded-xl bg-canvas/50 p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-ink/40">Patient</p>
+                  <p className="mt-0.5 text-sm font-medium">
+                    {activeConsultation.patientId?.fullName || 'Patient'}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-ink">Observations & Clinical Notes</label>
+                  <textarea
+                    rows={3}
+                    className="mt-1.5 block w-full rounded-xl border-0 p-3 text-sm ring-1 ring-inset ring-ink/10 focus:ring-2 focus:ring-ink bg-white"
+                    value={consultationNotes}
+                    onChange={e => setConsultationNotes(e.target.value)}
+                    placeholder="Symptoms discussed, examination findings, observations..."
+                  />
+                </div>
+              </div>
+
+              {/* Prescription form inline */}
+              <form onSubmit={submitPrescription} className="mt-4 space-y-4 rounded-2xl bg-white/70 p-5 ring-1 ring-ink/10">
+                <h4 className="text-sm font-semibold text-ink/70 uppercase tracking-wider">Prescription</h4>
                 <div>
                   <label className="block text-sm font-medium text-ink">Diagnosis *</label>
                   <input
@@ -494,7 +527,7 @@ export default function DoctorDashboardPage() {
                 <datalist id="duration-options">{DURATION_OPTIONS.map(o => <option key={o} value={o} />)}</datalist>
                 <datalist id="reason-options">{REASON_OPTIONS.map(o => <option key={o} value={o} />)}</datalist>
 
-                {/* Medicines (manual input) */}
+                {/* Medicines */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-sm font-medium text-ink">Medicines *</label>
@@ -517,7 +550,7 @@ export default function DoctorDashboardPage() {
                           <div className="relative sm:col-span-2">
                             <input
                               type="text"
-                              placeholder="Medicine name (e.g. Tylenol) *"
+                              placeholder="Medicine name (e.g. Dolo 650) *"
                               className="w-full rounded-lg border-0 p-2 text-sm ring-1 ring-inset ring-ink/10 bg-white"
                               value={med.medicineName}
                               onChange={e => {
@@ -534,7 +567,6 @@ export default function DoctorDashboardPage() {
                                     key={i}
                                     className="cursor-pointer px-3 py-2 text-sm hover:bg-canvas/80"
                                     onClick={() => {
-                                      // Multi-field update:
                                       setRxData(prev => ({
                                         ...prev,
                                         medicines: prev.medicines.map((m, i) => {
@@ -551,7 +583,6 @@ export default function DoctorDashboardPage() {
                                           return m
                                         })
                                       }))
-                                      
                                       setRxSuggestions([])
                                       setFocusedMedIndex(null)
                                     }}
@@ -626,55 +657,17 @@ export default function DoctorDashboardPage() {
                     disabled={rxLoading}
                     className="flex-1 rounded-xl bg-ink px-4 py-2.5 text-sm font-semibold text-white hover:bg-ink/90 disabled:opacity-50"
                   >
-                    {rxLoading ? 'Saving...' : 'Save Prescription'}
+                    {rxLoading ? 'Saving...' : 'Save Prescription & Complete'}
                   </button>
                   <button
                     type="button"
                     onClick={skipPrescription}
                     className="rounded-xl px-4 py-2.5 text-sm font-medium text-ink/60 ring-1 ring-ink/10 hover:bg-canvas/70"
                   >
-                    Skip
+                    Complete without Rx
                   </button>
                 </div>
               </form>
-            </SectionCard>
-          ) : activeConsultation ? (
-            /* ── Active Consultation ── */
-            <SectionCard title="Active Consultation" eyebrow="In session">
-              <div className="space-y-5 rounded-2xl bg-white/70 p-5 ring-1 ring-coral/20">
-                <div className="flex items-center gap-3">
-                  <span className="relative flex h-3 w-3">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-coral opacity-75" />
-                    <span className="relative inline-flex h-3 w-3 rounded-full bg-coral" />
-                  </span>
-                  <h3 className="font-display text-lg text-coral">Consultation in progress</h3>
-                </div>
-
-                <div className="rounded-xl bg-canvas/50 p-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-ink/40">Patient</p>
-                  <p className="mt-0.5 text-sm font-medium">
-                    {activeConsultation.patientId?.fullName || 'Patient'}
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-ink">Observations & Clinical Notes</label>
-                  <textarea
-                    rows={5}
-                    className="mt-1.5 block w-full rounded-xl border-0 p-3 text-sm ring-1 ring-inset ring-ink/10 focus:ring-2 focus:ring-ink bg-white"
-                    value={consultationNotes}
-                    onChange={e => setConsultationNotes(e.target.value)}
-                    placeholder="Symptoms discussed, examination findings, observations..."
-                  />
-                </div>
-
-                <button
-                  onClick={finishConsultation}
-                  className="w-full rounded-xl bg-coral px-4 py-3 text-sm font-semibold text-white hover:bg-coral/90"
-                >
-                  Mark Consultation Complete
-                </button>
-              </div>
             </SectionCard>
           ) : (
             /* ── Empty state ── */
