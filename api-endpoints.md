@@ -88,6 +88,34 @@ Issue new access token.
 
 Invalidate refresh session.
 
+### `POST /auth/register-staff`
+
+Create a new doctor or receptionist staff account. When role is `doctor`, also creates a linked Doctor profile.
+
+Access:
+
+- admin
+
+Body:
+
+```json
+{
+  "fullName": "Dr. New Doctor",
+  "email": "newdoctor@spcms.local",
+  "password": "Doctor@123",
+  "phone": "9876543210",
+  "role": "doctor",
+  "specialization": "General Medicine",
+  "departmentId": "..."
+}
+```
+
+Notes:
+
+- `role` must be `doctor` or `receptionist`
+- `specialization` and `departmentId` are required when role is `doctor`
+- Returns the created user (and doctor record if applicable)
+
 ### `GET /auth/me`
 
 Return current authenticated user profile.
@@ -782,6 +810,7 @@ Body:
       "dosage": "500mg",
       "frequency": "Three times daily",
       "duration": "7 days",
+      "reasonForChosen": "Bacterial Infection",
       "route": "oral",
       "instructions": "Take after meals"
     }
@@ -794,7 +823,7 @@ Body:
 }
 ```
 
-Required fields: `consultationId`, `diagnosis`, `medicines` (at least one). Each medicine requires: `medicineName`, `dosage`, `frequency`, `duration`.
+Required fields: `consultationId`, `diagnosis`, `medicines` (at least one). Each medicine requires: `medicineName`, `dosage`, `frequency`, `duration`, `reasonForChosen`.
 
 Rules:
 

@@ -487,6 +487,7 @@ Stores digital doctor prescriptions linked to consultations.
       dosage: String,
       frequency: String,
       duration: String,
+      reasonForChosen: String,
       route: String,
       instructions: String
     }
@@ -505,7 +506,7 @@ Stores digital doctor prescriptions linked to consultations.
 Notes:
 
 - one prescription per consultation is enforced at the application level (duplicate `consultationId` is rejected)
-- `medicines` is an embedded array; each item requires `medicineName`, `dosage`, `frequency`, and `duration`; `route` defaults to `oral`
+- `medicines` is an embedded array; each item requires `medicineName`, `dosage`, `frequency`, `duration`, and `reasonForChosen`; `route` defaults to `oral`
 - `prescriptionNumber` uses the format `RX-{randomCode}` (e.g., `RX-K7M2P1`)
 - creating a prescription automatically triggers a `prescription_ready` notification to the patient
 - only the doctor who created the prescription (or an admin) can update it

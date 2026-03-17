@@ -204,40 +204,16 @@ All accounts are created by the seed script (`npm run seed`).
 |---|------|-----------------|-----------|
 | 1 | Check the top heading | Shows "Welcome back, System" (first name extracted from "System Admin") | |
 
-### TC-3.3: KPI Metric Cards
+### TC-3.3: Admin Dashboard — Staff Registration Form
 
 | # | Step | Expected Result | Pass/Fail |
 |---|------|-----------------|-----------|
-| 1 | Verify 4 metric cards visible in a grid | Cards: "Checked in today", "Avg. wait time", "Doctors active", "Urgent cases" | |
-| 2 | "Checked in today" | Shows a number (teal accent), 0 if no check-ins today | |
-| 3 | "Avg. wait time" | Shows a number with "m" suffix (coral accent) | |
-| 4 | "Doctors active" | Shows count of available/busy/overrun doctors (moss accent) | |
-| 5 | "Urgent cases" | Shows count of urgent queue tokens (ink accent) | |
-
-### TC-3.4: Doctor Availability Section (Admin Only)
-
-| # | Step | Expected Result | Pass/Fail |
-|---|------|-----------------|-----------|
-| 1 | Check for "Doctor Availability" section | Visible when logged in as admin | |
-| 2 | Verify availability breakdown | Shows status cards with count per availability status (available, busy, etc.) | |
-| 3 | Log out, log in as receptionist | "Doctor Availability" section is NOT shown | |
-
-### TC-3.5: Recent Appointments
-
-| # | Step | Expected Result | Pass/Fail |
-|---|------|-----------------|-----------|
-| 1 | Check "Recent Appointments" section | Shows up to 5 most recent appointments | |
-| 2 | Each row shows | Patient name, date/time, doctor name, status badge | |
-| 3 | If no appointments exist | Shows "No recent appointments." | |
-
-### TC-3.6: Recent Notifications
-
-| # | Step | Expected Result | Pass/Fail |
-|---|------|-----------------|-----------|
-| 1 | Check "Recent Notifications" section | Shows up to 5 most recent notifications | |
-| 2 | Each row shows | Notification type (readable, underscores as spaces), patient name, channel | |
-| 3 | Status badges | sent = green (moss), failed = red (coral), other = yellow (sand) | |
-| 4 | If no notifications exist | Shows "No recent notifications." | |
+| 1 | Login as admin, navigate to Overview | "Add New Staff" form is displayed (KPIs are NOT shown for admin) |
+| 2 | Check form fields | Role dropdown (Doctor/Receptionist), Name, Email, Password, Phone fields visible |
+| 3 | Select role "Doctor" | Additional fields appear: Specialization and Department |
+| 4 | Select role "Receptionist" | Specialization and Department fields hidden |
+| 5 | Fill in all fields for a new doctor, submit | Toast success: "Staff member registered!" |
+| 6 | Login as receptionist, navigate to Overview | KPI cards and dashboard data shown (NOT the staff form) | |
 
 ---
 
@@ -443,18 +419,17 @@ All accounts are created by the seed script (`npm run seed`).
 | 1 | Book another appointment with same doctor, same date/time (10:00) | Toast error about slot conflict (409 response) | |
 | 2 | Book with same doctor but different time (10:30) | Should succeed (no overlap for 15-min slots) | |
 
-### TC-7.6: Cancel Appointment
+### TC-7.6: Cancel Appointment (with Reason)
 
 | # | Step | Expected Result | Pass/Fail |
 |---|------|-----------------|-----------|
 | 1 | Find a "scheduled" appointment in the table | "Cancel" button visible (coral text) | |
-| 2 | Click "Cancel" | Confirmation modal appears: "Cancel Appointment" title | |
-| 3 | Read modal message | "This will cancel the appointment and notify the patient. Continue?" | |
-| 4 | Click "Cancel" (the modal's cancel button) | Modal closes, appointment unchanged | |
-| 5 | Click "Cancel" on the appointment again | Modal appears again | |
-| 6 | Click "Yes, Cancel" (confirm) | Toast success: "Appointment cancelled" | |
-| 7 | Check table | Appointment status now shows "cancelled" badge | |
-| 8 | Verify "Cancel" button gone | No cancel button on cancelled appointments | |
+| 2 | Click "Cancel" | Confirmation modal appears with a **required textarea** for cancellation reason | |
+| 3 | Try to confirm without entering a reason | Confirm button disabled or toast error | |
+| 4 | Enter reason: "Doctor unavailable" | Textarea filled | |
+| 5 | Click "Yes, Cancel" (confirm) | Toast success: "Appointment cancelled" | |
+| 6 | Check table | Appointment status now shows "cancelled" badge | |
+| 7 | Verify patient notification | A `cancellation` notification is sent to the patient with the reason | |
 
 ### TC-7.7: Appointment Table
 
@@ -566,45 +541,38 @@ All accounts are created by the seed script (`npm run seed`).
 |---|------|-----------------|-----------|
 | 1 | Click "Call Next" on first patient | Toast: "Consultation started" | |
 | 2 | Queue item updates | Shows "In Session" status badge instead of "Call Next" | |
-| 3 | Active Consultation panel | Pulsing coral dot with "In progress" text appears | |
-| 4 | Patient details in panel | Patient name shown in consultation panel | |
-| 5 | Clinical notes textarea | Empty textarea with placeholder "Examination findings, observations..." | |
-| 6 | "Complete Consultation" button | Visible, coral background | |
-| 7 | Doctor Dashboard "My Patients" | Token shows "in_consultation" status | |
+| 3 | Active Consultation panel | Pulsing coral dot with "In progress" text, patient name, and clinical notes textarea appear **alongside** the prescription form | |
+| 4 | Prescription form visible | Diagnosis, Treatment Notes, Medicines, "Save Prescription & Complete" and "Complete without Rx" buttons visible inline | |
+| 5 | No separate "Complete Consultation" button | The old standalone "Mark Consultation Complete" button is removed | |
 
-### TC-9.6: Complete Consultation
+### TC-9.6: Indian Medicine Autocomplete
 
 | # | Step | Expected Result | Pass/Fail |
 |---|------|-----------------|-----------|
-| 1 | Type some notes in textarea | "Patient presented with fever. Prescribed antibiotics." | |
-| 2 | Click "Complete Consultation" | Toast: "Consultation completed" | |
-| 3 | Prescription form appears | Form with fields: Diagnosis, Treatment Notes, Medicines, Save/Skip buttons | |
-| 4 | Queue item | Status changes to "completed" or is removed from active queue | |
+| 1 | In the Medicine Name field, type "Dol" | Dropdown shows "Dolo 650" from local Indian dictionary | |
+| 2 | Select "Dolo 650" from dropdown | Medicine name, Reason ("Fever"), Dosage ("650mg"), Frequency ("As needed (SOS)"), Duration ("3 days") are all auto-filled | |
+| 3 | Type "Para" in another medicine row | Dropdown shows "Paracetamol 500mg" from local dictionary + US API results | |
+| 4 | Click a dosage/frequency/duration field | A `<datalist>` dropdown with common options appears | |
+| 5 | Type a rare medicine not in local dictionary (e.g. "Lisin") | US-based RxTerms API results appear in dropdown | |
 
-### TC-9.7: Create Prescription
-
-| # | Step | Expected Result | Pass/Fail |
-|---|------|-----------------|-----------|
-| 1 | Prescription form is shown | Diagnosis input, treatment notes, 1 medicine row with fields | |
-| 2 | Leave diagnosis empty, click "Save Prescription" | Toast error: "Diagnosis is required" | |
-| 3 | Enter diagnosis: "Acute viral fever" | Entered | |
-| 4 | Leave medicine name empty, click save | Toast error: "Add at least one medicine" | |
-| 5 | Enter medicine: name "Paracetamol", dosage "500mg", frequency "3 times daily", duration "5 days" | All fields filled | |
-| 6 | Route dropdown | Default "oral" selected; options include: oral, topical, injection, inhalation, iv, other | |
-| 7 | Click "+ Add medicine" | Second medicine row appears | |
-| 8 | Enter second medicine: name "Azithromycin", dosage "250mg", frequency "once daily", duration "3 days" | Filled | |
-| 9 | Click "Remove" on second medicine | Second row removed (only shown when >1 medicine) | |
-| 10 | Re-add second medicine and fill it | Two medicines in form | |
-| 11 | Click "Save Prescription" | Toast: "Prescription created and patient notified" | |
-| 12 | Form disappears | Queue returns to normal state, ready for next patient | |
-
-### TC-9.8: Skip Prescription
+### TC-9.7 Save Prescription & Complete (Merged Flow)
 
 | # | Step | Expected Result | Pass/Fail |
 |---|------|-----------------|-----------|
-| 1 | Complete another consultation (repeat steps 9.5-9.6 with a different patient) | Prescription form appears | |
-| 2 | Click "Skip" button | Toast: "Prescription skipped" (with info icon) | |
-| 3 | Form disappears | Queue state refreshed, ready for next patient | |
+| 1 | Enter diagnosis: "Acute viral fever" | Entered | |
+| 2 | Leave diagnosis empty, click "Save Prescription & Complete" | Toast error: "Diagnosis is required" | |
+| 3 | Add medicine via autocomplete (e.g. Dolo 650) | Fields auto-fill | |
+| 4 | Ensure Reason for Chosen is filled | Required field — cannot be empty | |
+| 5 | Click "Save Prescription & Complete" | Toast: "Prescription saved & consultation completed" | |
+| 6 | Queue and consultation state | Consultation marked completed, queue token completed, doctor set to available, prescription saved — all in one action | |
+
+### TC-9.8: Complete Without Prescription
+
+| # | Step | Expected Result | Pass/Fail |
+|---|------|-----------------|-----------|
+| 1 | Start another consultation (repeat 9.5) | Consultation view with inline prescription form | |
+| 2 | Click "Complete without Rx" | Toast: "Consultation completed (no prescription)" | |
+| 3 | Queue state | Consultation marked completed, no prescription created | |
 
 ### TC-9.9: Prescription Validation (Incomplete Medicine)
 

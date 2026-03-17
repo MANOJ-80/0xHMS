@@ -114,7 +114,29 @@ There are two registration paths in the system.
 
 ## 3. Doctor & Staff Management
 
-### 3.1 Create Doctor
+### 3.1 Register Staff (Admin)
+
+**Endpoint:** `POST /api/v1/auth/register-staff`
+
+**Frontend page:** `DashboardPage.jsx` (admin view — dedicated staff registration form)
+
+**Access:** `admin`
+
+**Flow:**
+
+1. Admin navigates to the Dashboard, which presents a "Add New Staff" form.
+2. Admin selects role (`doctor` or `receptionist`), enters full name, email, password, and phone.
+3. For doctors, admin also provides specialization and department.
+4. Frontend sends `POST /auth/register-staff`.
+5. Backend creates a User record. If role is `doctor`, also creates a linked Doctor profile with an auto-generated `doctorCode`.
+6. Returns the created user (and doctor record if applicable).
+
+**Business rules:**
+- Only admins can register staff. The endpoint is protected by `requireRole('admin')`.
+- Email must be unique.
+- Admin dashboard is restricted to this staff registration form only — KPIs and other overview data are shown only for receptionist role.
+
+### 3.2 Create Doctor
 
 **Endpoint:** `POST /api/v1/doctors`
 
@@ -131,7 +153,7 @@ There are two registration paths in the system.
 - `allowAutoAssignment` (default `true`)
 - `scheduleTemplate` (default `[]`)
 
-### 3.2 Update Doctor Profile
+### 3.3 Update Doctor Profile
 
 **Endpoint:** `PATCH /api/v1/doctors/:id`
 
@@ -239,9 +261,9 @@ Slots are generated dynamically from this template via `GET /doctors/:id/slots?d
 
 **State transition:** `scheduled` or `checked_in` → `cancelled`.
 
-**Fields updated:** `status`, `cancellationReason` (from `req.body.reason` or defaults to `'Cancelled by user'`).
+**Fields updated:** `status`, `cancellationReason` (from `req.body.reason` — **required**, shown in a textarea in the cancellation modal).
 
-**Notification triggered:** `cancellation` → patient is notified of the cancellation.
+**Notification triggered:** `cancellation` → patient is notified of the cancellation, including the reason.
 
 ---
 
@@ -413,7 +435,7 @@ Active tokens are those with `isActive: true` and `queueStatus` in `['waiting', 
 
 **Endpoint:** `PATCH /api/v1/consultations/:id`
 
-**Frontend page:** `DoctorDashboardPage.jsx` — doctor clicks "Complete" after finishing.
+**Frontend page:** `DoctorDashboardPage.jsx` — consultation is auto-completed when the doctor saves a prescription or clicks "Complete without Rx".
 
 **Optional body:** `{ "consultationNotes": "..." }`
 
@@ -428,18 +450,7 @@ Active tokens are those with `isActive: true` and `queueStatus` in `['waiting', 
 7. Recalculate doctor queue, create audit log, emit real-time update.
 8. Check if a prescription already exists for this consultation. Return `prescriptionPending` flag.
 
-**Notifications:** None.
-
-**Response includes:**
-```json
-{
-  "consultation": { ... },
-  "prescription": null,
-  "prescriptionPending": true
-}
-```
-
-This tells the frontend to prompt the doctor to write a prescription.
+**Note:** The frontend merges the consultation notes and prescription form into a **single view**. The doctor sees both on the same screen during the consultation. The separate "Mark Consultation Complete" button has been removed — instead, completing the consultation happens automatically when the doctor either saves a prescription or clicks "Complete without Rx".
 
 ### 7.3 List Consultations
 
@@ -458,7 +469,7 @@ This tells the frontend to prompt the doctor to write a prescription.
 
 **Endpoint:** `POST /api/v1/prescriptions`
 
-**Frontend page:** `DoctorDashboardPage.jsx` — manual prescription form shown after consultation completion.
+**Frontend page:** `DoctorDashboardPage.jsx` — prescription form is shown **inline during the active consultation**, not after it.
 
 **Access:** `doctor`, `admin`
 
@@ -472,10 +483,11 @@ This tells the frontend to prompt the doctor to write a prescription.
   "diagnosis": "Upper respiratory tract infection",
   "medicines": [
     {
-      "medicineName": "Amoxicillin 500mg",
-      "dosage": "1 tablet",
-      "frequency": "3 times daily",
-      "duration": "7 days"
+      "medicineName": "Dolo 650",
+      "dosage": "650mg",
+      "frequency": "As needed (SOS)",
+      "duration": "3 days",
+      "reasonForChosen": "Fever"
     }
   ]
 }
@@ -488,18 +500,11 @@ This tells the frontend to prompt the doctor to write a prescription.
 - `doctorSignature` (default `''`)
 - `hospitalName` (default `'SPCMS Hospital'`)
 
-**Flow:**
+**Medicine autocomplete:** The frontend includes a comprehensive local dictionary of 34+ common Indian medicines (Dolo 650, Calpol, Combiflam, Augmentin, Pan 40, Allegra, etc.) with predefined defaults for reason, dosage, frequency, and duration. Selecting a medicine from the dropdown auto-fills all these fields. For medicines not in the local dictionary, the input falls back to the US-based NIH RxTerms API for autocomplete.
 
-1. Validate required fields: `consultationId`, `diagnosis`, `medicines` (non-empty array) → 400 if missing.
-2. Validate each medicine has `medicineName`, `dosage`, `frequency`, `duration` → 400 if any sub-field missing.
-3. Look up the consultation → 404 if not found.
-4. **Duplicate check:** `Prescription.findOne({ consultationId })` → 409 "A prescription already exists for this consultation."
-5. Create prescription record via `prescriptionService.createPrescriptionRecord()`, deriving `patientId`, `doctorId`, `appointmentId`, `departmentId` from the consultation.
-6. Create audit log.
+**Predefined dropdowns:** The Dosage, Frequency, Duration, and Reason fields use HTML `<datalist>` elements with common options to minimize manual typing.
 
-**Notification triggered:** `prescription_ready` → "Your prescription from {doctorName} is now available. You can view it in the patient portal."
-
-**Medicine format:** All medicines are entered manually (free-text fields), not selected from a drug database. This is by design for the MVP.
+**Medicine format:** Each medicine requires `medicineName`, `dosage`, `frequency`, `duration`, and `reasonForChosen`.
 
 ### 8.2 Update Prescription
 
@@ -755,8 +760,8 @@ For reference, here is the complete happy path for a scheduled appointment:
 4. **Receptionist checks in patient** → `POST /checkins` → selects available doctor. Creates Checkin (`queued`) + QueueToken (`assigned`). Appointment → `checked_in`. Notification: `doctor_assignment`.
 5. **Doctor sees patient in "My Patients"** list. Clicks "Call". → `PATCH /queue/tokens/:id/called` → token: `called`. Notification: `queue_next`.
 6. **Doctor starts consultation** → `POST /consultations/start` → token: `in_consultation`. Doctor → `busy`.
-7. **Doctor completes consultation** → `PATCH /consultations/:id` → token: `completed`. Doctor → `available`. Appointment → `completed`. `prescriptionPending: true`.
-8. **Doctor writes prescription** → `POST /prescriptions` → manual medicine entry. Notification: `prescription_ready`.
+7. **Doctor writes prescription inline** during consultation — clinical notes and prescription form are on the same screen. Medicine autocomplete suggests Indian medicines (Dolo 650, Paracetamol, etc.) and auto-fills dosage, frequency, duration, and reason.
+8. **Doctor saves prescription** → `POST /prescriptions` → consultation auto-completes. Token: `completed`. Doctor → `available`. Appointment → `completed`. Notification: `prescription_ready`.
 9. **Patient views prescription** in patient portal. Can download as text.
 
 For a **walk-in patient** without a prior appointment, the flow starts at step 3 (receptionist creates the patient if needed, then checks in directly with `isWalkIn: true`).

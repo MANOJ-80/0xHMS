@@ -215,7 +215,7 @@ HospitalManagement/
             ├── LoginPage.jsx              # Login form with role-based redirect
             ├── RegisterPage.jsx           # Patient self-registration form
             ├── ProfilePage.jsx            # Profile management for all roles
-            ├── DashboardPage.jsx          # Admin/receptionist overview with live data
+            ├── DashboardPage.jsx          # Admin staff registration form / receptionist overview
             ├── CheckinPage.jsx            # Front desk check-in with reassignment detection
             ├── AppointmentsPage.jsx       # Appointment booking & management
             ├── QueueBoardPage.jsx         # Real-time queue display board
@@ -592,6 +592,7 @@ Notification ──N:1──> Patient; optional refs to Appointment, QueueToken,
 | `dosage` | String | Required (e.g. `500mg`) |
 | `frequency` | String | Required (e.g. `Twice daily`) |
 | `duration` | String | Required (e.g. `7 days`) |
+| `reasonForChosen` | String | Required (e.g. `Fever`, `Infection`) |
 | `route` | String | Default `oral` |
 | `instructions` | String | Optional special instructions |
 
@@ -669,6 +670,7 @@ Base URL: `http://localhost:5000/api/v1`
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | POST | `/auth/register-patient` | None | Register a new patient account (name, email, phone, password, DOB, gender) |
+| POST | `/auth/register-staff` | Bearer (admin) | Register a new doctor or receptionist account |
 | POST | `/auth/login` | None | Login, returns JWT tokens |
 | GET | `/auth/me` | Bearer | Get current user profile |
 | GET | `/auth/profile` | Bearer | Get detailed profile (includes linked patient/doctor data) |
@@ -861,6 +863,7 @@ Base URL: `http://localhost:5000/api/v1`
       "dosage": "500mg",
       "frequency": "Three times daily",
       "duration": "7 days",
+      "reasonForChosen": "Bacterial Infection",
       "route": "oral",
       "instructions": "Take after meals"
     }
@@ -1154,20 +1157,23 @@ The complete patient consultation journey follows these steps:
        ├── Creates Consultation record
        └── QueueToken status: called -> in_consultation
        │
-7. COMPLETE      Doctor completes consultation with notes
-       │
-       ├── Consultation status: in_consultation -> completed
-       ├── QueueToken status: in_consultation -> completed
-       └── Queue positions recalculated for remaining patients
-       │
-8. PRESCRIBE     Doctor creates digital prescription (optional)
+7. PRESCRIBE     Doctor writes prescription inline during consultation
+       │          (consultation notes + prescription on the same screen)
+       │          Medicine autocomplete with 34+ Indian medicines (Dolo, Calpol, etc.)
+       │          Auto-fills dosage, frequency, duration, and reason
        │
        ├── Creates Prescription record with medicines, diagnosis, follow-up
+       ├── Consultation auto-completes (status -> completed)
+       ├── QueueToken status: in_consultation -> completed
+       ├── Queue positions recalculated for remaining patients
        └── Sends prescription_ready notification to patient
        │
-9. (OPTIONAL) TRANSFER    Doctor transfers to another doctor
+       │   OR: Doctor clicks "Complete without Rx"
+       │       └── Consultation completes without a prescription
        │
-10. (OPTIONAL) MISS       Patient doesn't respond when called
+8. (OPTIONAL) TRANSFER    Doctor transfers to another doctor
+       │
+9. (OPTIONAL) MISS       Patient doesn't respond when called
        │
        └── Sends missed_appointment notification to patient
 ```
