@@ -18,6 +18,7 @@ const LOCAL_MEDICINES = [
   { term: 'Calpol', displayName: 'Calpol', strengths: '500mg, 650mg Oral Tablet', defaultReason: 'Fever', defaultDosage: '500mg', defaultFrequency: 'As needed (SOS)', defaultDuration: '3 days' },
   { term: 'Crocin', displayName: 'Crocin Advance', strengths: '500mg Oral Tablet', defaultReason: 'Fever / Body Ache', defaultDosage: '500mg', defaultFrequency: 'As needed (SOS)', defaultDuration: '3 days' },
   { term: 'Combiflam', displayName: 'Combiflam', strengths: 'Ibuprofen 400mg + Paracetamol 325mg Oral Tablet', defaultReason: 'Pain / Inflammation', defaultDosage: '1 Tablet', defaultFrequency: 'Twice daily (BD)', defaultDuration: '3 days' },
+  { term: 'Citracin', displayName: 'Citracin', strengths: 'Citicoline Oral Tablet', defaultReason: 'Neurological Support / Memory', defaultDosage: '500mg', defaultFrequency: 'Once daily (OD)', defaultDuration: '1 month' },
   { term: 'Voveran', displayName: 'Voveran SR', strengths: '75mg, 100mg Oral Tablet', defaultReason: 'Severe Pain', defaultDosage: '75mg', defaultFrequency: 'Twice daily (BD)', defaultDuration: '5 days' },
   { term: 'Meftal', displayName: 'Meftal Spas', strengths: 'Mefenamic Acid + Dicyclomine Oral Tablet', defaultReason: 'Stomach Cramps', defaultDosage: '1 Tablet', defaultFrequency: 'Twice daily (BD)', defaultDuration: '2 days' },
   // Antibiotics
