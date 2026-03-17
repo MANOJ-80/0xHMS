@@ -13,6 +13,7 @@ const emptyMedicine = { medicineName: '', dosage: '', frequency: '', duration: '
 
 const LOCAL_MEDICINES = [
   // Pain, Fever, Inflammation
+  { term: 'Paracetamol', displayName: 'Paracetamol 500mg', strengths: '500mg, 650mg Oral Tablet', defaultReason: 'Fever', defaultDosage: '500mg', defaultFrequency: 'As needed (SOS)', defaultDuration: '3 days' },
   { term: 'Dolo', displayName: 'Dolo 650', strengths: '650mg Oral Tablet', defaultReason: 'Fever', defaultDosage: '650mg', defaultFrequency: 'As needed (SOS)', defaultDuration: '3 days' },
   { term: 'Calpol', displayName: 'Calpol', strengths: '500mg, 650mg Oral Tablet', defaultReason: 'Fever', defaultDosage: '500mg', defaultFrequency: 'As needed (SOS)', defaultDuration: '3 days' },
   { term: 'Crocin', displayName: 'Crocin Advance', strengths: '500mg Oral Tablet', defaultReason: 'Fever / Body Ache', defaultDosage: '500mg', defaultFrequency: 'As needed (SOS)', defaultDuration: '3 days' },
