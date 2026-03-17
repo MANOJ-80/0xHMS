@@ -13,6 +13,7 @@ export default function ConfirmModal({
   variant = 'danger', // 'danger' | 'warning' | 'info'
   onConfirm,
   onCancel,
+  children,
 }) {
   const dialogRef = useRef(null)
 
@@ -40,7 +41,8 @@ export default function ConfirmModal({
     >
       <div className="p-6">
         <h3 className="font-display text-lg font-semibold text-ink">{title}</h3>
-        <p className="mt-2 text-sm leading-6 text-ink/70">{message}</p>
+        {message && <p className="mt-2 text-sm leading-6 text-ink/70">{message}</p>}
+        {children && <div className="mt-4">{children}</div>}
         <div className="mt-6 flex justify-end gap-3">
           <button
             type="button"

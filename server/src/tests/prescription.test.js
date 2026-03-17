@@ -69,10 +69,11 @@ describe('Prescription API', () => {
             {
               medicineName: 'Amoxicillin',
               dosage: '500mg',
-              frequency: '3 times daily',
+              frequency: 'twice daily',
               duration: '7 days',
+              reasonForChosen: 'Bacterial infection',
               route: 'oral',
-              instructions: 'Take after meals',
+              instructions: 'after meals',
             },
           ],
           treatmentNotes: 'Rest and hydration advised',
@@ -104,7 +105,7 @@ describe('Prescription API', () => {
         .send({
           consultationId: consultation._id.toString(),
           diagnosis: 'Duplicate',
-          medicines: [{ medicineName: 'X', dosage: '1', frequency: '1', duration: '1' }],
+          medicines: [{ medicineName: 'X', dosage: '1', frequency: '1', duration: '1', reasonForChosen: 'Test' }],
         })
 
       expect(res.status).toBe(409)
@@ -156,7 +157,7 @@ describe('Prescription API', () => {
         .send({
           consultationId: con2._id.toString(),
           diagnosis: 'Test',
-          medicines: [{ medicineName: 'X' }], // missing dosage, frequency, duration
+          medicines: [{ medicineName: 'X', reasonForChosen: 'Test' }], // missing dosage, frequency, duration
         })
 
       expect(res.status).toBe(400)
@@ -169,7 +170,7 @@ describe('Prescription API', () => {
         .send({
           consultationId: consultation._id.toString(),
           diagnosis: 'Test',
-          medicines: [{ medicineName: 'X', dosage: '1', frequency: '1', duration: '1' }],
+          medicines: [{ medicineName: 'X', dosage: '1', frequency: '1', duration: '1', reasonForChosen: 'Test' }],
         })
 
       expect(res.status).toBe(403)

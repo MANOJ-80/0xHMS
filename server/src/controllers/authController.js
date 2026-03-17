@@ -11,6 +11,12 @@ function generatePatientCode() {
   return `PAT-${Date.now()}`
 }
 
+function generateDoctorCode(fullName) {
+  const parts = fullName.split(' ')
+  const initials = parts.map(p => p[0].toUpperCase()).join('')
+  return `DOC-${initials}-${Math.floor(100 + Math.random() * 900)}`
+}
+
 export const registerPatient = asyncHandler(async (req, res) => {
   const { fullName, email, phone, password, dateOfBirth, gender } = req.body
 
@@ -66,6 +72,67 @@ export const registerPatient = asyncHandler(async (req, res) => {
         refreshToken: signRefreshToken(payload),
       },
     },
+    201,
+  )
+})
+
+export const registerStaff = asyncHandler(async (req, res) => {
+  const { fullName, email, phone, password, role, specialization, departmentId } = req.body
+
+  if (!fullName || !email || !password || !role) {
+    throw new ApiError(400, 'fullName, email, password, and role are required')
+  }
+
+  if (role !== 'doctor' && role !== 'receptionist') {
+    throw new ApiError(400, 'Role must be either doctor or receptionist')
+  }
+
+  if (role === 'doctor' && (!specialization || !departmentId)) {
+    throw new ApiError(400, 'Doctors require a specialization and departmentId')
+  }
+
+  const existingUser = await User.findOne({ email: email.toLowerCase() })
+  if (existingUser) {
+    throw new ApiError(409, 'An account with this email already exists')
+  }
+
+  const passwordHash = await bcrypt.hash(password, 10)
+
+  let cleanPhone = undefined
+  if (phone) {
+    cleanPhone = phone.replace(/^(\+91|91|0)/, '').trim()
+    if (!/^\d{10}$/.test(cleanPhone)) {
+      throw new ApiError(400, 'If provided, please enter a valid 10-digit Indian mobile number')
+    }
+  }
+
+  const user = await User.create({
+    fullName,
+    email,
+    phone: cleanPhone,
+    passwordHash,
+    role,
+  })
+
+  let doctor = null
+  if (role === 'doctor') {
+    doctor = await Doctor.create({
+      userId: user._id,
+      doctorCode: generateDoctorCode(fullName),
+      fullName,
+      specialization,
+      departmentId,
+      allowAutoAssignment: true,
+      isActive: true,
+    })
+    user.linkedDoctorId = doctor._id
+    await user.save()
+  }
+
+  return sendSuccess(
+    res,
+    `${role.charAt(0).toUpperCase() + role.slice(1)} account created successfully`,
+    { user, doctor },
     201,
   )
 })

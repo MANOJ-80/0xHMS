@@ -12,21 +12,40 @@ export default function DashboardPage() {
   const [dashboard, setDashboard] = useState(null)
   const [recentAppointments, setRecentAppointments] = useState([])
   const [recentNotifications, setRecentNotifications] = useState([])
+  
+  // Admin staff creation state
+  const [departments, setDepartments] = useState([])
+  const [staffForm, setStaffForm] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    password: '',
+    role: 'receptionist',
+    specialization: '',
+    departmentId: '',
+  })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const endpoint = user?.role === 'admin' ? '/reports/dashboard' : '/reports/overview'
 
     Promise.all([
-      apiFetch(endpoint),
-      apiFetch('/appointments').catch(() => ({ appointments: [] })),
-      apiFetch('/notifications').catch(() => ({ notifications: [] })),
+      user?.role !== 'admin' ? apiFetch(endpoint) : Promise.resolve({ overview: {} }),
+      user?.role !== 'admin' ? apiFetch('/appointments').catch(() => ({ appointments: [] })) : Promise.resolve({ appointments: [] }),
+      user?.role !== 'admin' ? apiFetch('/notifications').catch(() => ({ notifications: [] })) : Promise.resolve({ notifications: [] }),
+      user?.role === 'admin' ? apiFetch('/departments').catch(() => ({ departments: [] })) : Promise.resolve({ departments: [] }),
     ])
-      .then(([reportData, aptData, notifData]) => {
-        setOverview(reportData.overview)
-        if (user?.role === 'admin') setDashboard(reportData)
-        setRecentAppointments((aptData.appointments || []).slice(0, 5))
-        setRecentNotifications((notifData.notifications || []).slice(0, 5))
+      .then(([reportData, aptData, notifData, deptData]) => {
+        if (user?.role !== 'admin') {
+          setOverview(reportData.overview)
+          setRecentAppointments((aptData.appointments || []).slice(0, 5))
+          setRecentNotifications((notifData.notifications || []).slice(0, 5))
+        }
+        if (user?.role === 'admin') {
+          setDepartments(deptData.departments || [])
+        }
       })
       .catch((err) => toast.error(err.message))
       .finally(() => setLoading(false))
@@ -67,20 +86,127 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Doctor availability (admin only) */}
-      {user?.role === 'admin' && dashboard?.doctorsByAvailability && (
-        <SectionCard title="Doctor Availability" eyebrow="Staff status">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {dashboard.doctorsByAvailability.map((stat) => (
-              <div key={stat._id} className="flex items-center gap-4 rounded-2xl bg-white/70 p-4 ring-1 ring-ink/10">
-                <StatusBadge status={stat._id} />
-                <span className="font-display text-2xl font-semibold">{stat.count}</span>
-              </div>
-            ))}
-          </div>
-        </SectionCard>
-      )}
 
+      {user?.role === 'admin' ? (
+        <SectionCard title="Add New Staff" eyebrow="System Administration">
+          <form 
+            className="space-y-4 max-w-2xl rounded-2xl bg-white/70 p-5 ring-1 ring-ink/10"
+            onSubmit={async (e) => {
+              e.preventDefault()
+              setIsSubmitting(true)
+              try {
+                await apiFetch('/auth/register-staff', {
+                  method: 'POST',
+                  body: JSON.stringify(staffForm)
+                })
+                toast.success(`${staffForm.role === 'doctor' ? 'Doctor' : 'Receptionist'} created successfully`)
+                setStaffForm({ fullName: '', email: '', phone: '', password: '', role: 'receptionist', specialization: '', departmentId: '' })
+              } catch (err) {
+                toast.error(err.message)
+              } finally {
+                setIsSubmitting(false)
+              }
+            }}
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-ink">Role *</label>
+                <select 
+                  required
+                  value={staffForm.role}
+                  onChange={(e) => setStaffForm({ ...staffForm, role: e.target.value })}
+                  className="mt-1.5 block w-full rounded-xl border-0 p-3 text-sm ring-1 ring-inset ring-ink/10 bg-white"
+                >
+                  <option value="receptionist">Receptionist</option>
+                  <option value="doctor">Doctor</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-ink">Full Name *</label>
+                <input 
+                  type="text" required
+                  value={staffForm.fullName}
+                  onChange={(e) => setStaffForm({ ...staffForm, fullName: e.target.value })}
+                  className="mt-1.5 block w-full rounded-xl border-0 p-3 text-sm ring-1 ring-inset ring-ink/10 bg-white"
+                  placeholder="e.g. Jane Doe"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-ink">Email *</label>
+                <input 
+                  type="email" required
+                  value={staffForm.email}
+                  onChange={(e) => setStaffForm({ ...staffForm, email: e.target.value })}
+                  className="mt-1.5 block w-full rounded-xl border-0 p-3 text-sm ring-1 ring-inset ring-ink/10 bg-white"
+                  placeholder="name@hospital.com"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-ink">Password *</label>
+                <input 
+                  type="password" required minLength={6}
+                  value={staffForm.password}
+                  onChange={(e) => setStaffForm({ ...staffForm, password: e.target.value })}
+                  className="mt-1.5 block w-full rounded-xl border-0 p-3 text-sm ring-1 ring-inset ring-ink/10 bg-white"
+                  placeholder="••••••••"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-ink">Phone</label>
+                <input 
+                  type="text"
+                  value={staffForm.phone}
+                  onChange={(e) => setStaffForm({ ...staffForm, phone: e.target.value })}
+                  className="mt-1.5 block w-full rounded-xl border-0 p-3 text-sm ring-1 ring-inset ring-ink/10 bg-white"
+                  placeholder="10-digit number"
+                />
+              </div>
+            </div>
+
+            {staffForm.role === 'doctor' && (
+              <div className="grid gap-4 sm:grid-cols-2 pt-4 border-t border-ink/10 mt-4">
+                <div>
+                  <label className="block text-sm font-medium text-ink">Department *</label>
+                  <select 
+                    required
+                    value={staffForm.departmentId}
+                    onChange={(e) => setStaffForm({ ...staffForm, departmentId: e.target.value })}
+                    className="mt-1.5 block w-full rounded-xl border-0 p-3 text-sm ring-1 ring-inset ring-ink/10 bg-white"
+                  >
+                    <option value="">Select Department...</option>
+                    {departments.map(d => (
+                      <option key={d._id} value={d._id}>{d.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-ink">Specialization *</label>
+                  <input 
+                    type="text" required
+                    value={staffForm.specialization}
+                    onChange={(e) => setStaffForm({ ...staffForm, specialization: e.target.value })}
+                    className="mt-1.5 block w-full rounded-xl border-0 p-3 text-sm ring-1 ring-inset ring-ink/10 bg-white"
+                    placeholder="e.g. Cardiology"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="pt-4 flex justify-end">
+              <button 
+                type="submit" disabled={isSubmitting}
+                className="rounded-xl bg-ink px-6 py-2.5 text-sm font-semibold text-white hover:bg-ink/90 disabled:opacity-50"
+              >
+                {isSubmitting ? 'Creating...' : 'Create Staff Member'}
+              </button>
+            </div>
+          </form>
+        </SectionCard>
+      ) : (
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Recent appointments */}
         <SectionCard title="Recent Appointments" eyebrow="Scheduling">
@@ -131,6 +257,7 @@ export default function DashboardPage() {
           )}
         </SectionCard>
       </div>
+      )}
     </div>
   )
 }

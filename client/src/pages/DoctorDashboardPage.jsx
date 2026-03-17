@@ -9,7 +9,58 @@ import toast from 'react-hot-toast'
 
 const AVAILABILITY_OPTIONS = ['available', 'busy', 'on_break', 'offline']
 
-const emptyMedicine = { medicineName: '', dosage: '', frequency: '', duration: '', route: 'oral', instructions: '' }
+const emptyMedicine = { medicineName: '', dosage: '', frequency: '', duration: '', reasonForChosen: '', route: 'oral', instructions: '' }
+
+const LOCAL_MEDICINES = [
+  // Pain, Fever, Inflammation
+  { term: 'Dolo', displayName: 'Dolo 650', strengths: '650mg Oral Tablet', defaultReason: 'Fever', defaultDosage: '650mg', defaultFrequency: 'As needed (SOS)', defaultDuration: '3 days' },
+  { term: 'Calpol', displayName: 'Calpol', strengths: '500mg, 650mg Oral Tablet', defaultReason: 'Fever', defaultDosage: '500mg', defaultFrequency: 'As needed (SOS)', defaultDuration: '3 days' },
+  { term: 'Crocin', displayName: 'Crocin Advance', strengths: '500mg Oral Tablet', defaultReason: 'Fever / Body Ache', defaultDosage: '500mg', defaultFrequency: 'As needed (SOS)', defaultDuration: '3 days' },
+  { term: 'Combiflam', displayName: 'Combiflam', strengths: 'Ibuprofen 400mg + Paracetamol 325mg Oral Tablet', defaultReason: 'Pain / Inflammation', defaultDosage: '1 Tablet', defaultFrequency: 'Twice daily (BD)', defaultDuration: '3 days' },
+  { term: 'Voveran', displayName: 'Voveran SR', strengths: '75mg, 100mg Oral Tablet', defaultReason: 'Severe Pain', defaultDosage: '75mg', defaultFrequency: 'Twice daily (BD)', defaultDuration: '5 days' },
+  { term: 'Meftal', displayName: 'Meftal Spas', strengths: 'Mefenamic Acid + Dicyclomine Oral Tablet', defaultReason: 'Stomach Cramps', defaultDosage: '1 Tablet', defaultFrequency: 'Twice daily (BD)', defaultDuration: '2 days' },
+  // Antibiotics
+  { term: 'Augmentin', displayName: 'Augmentin 625 Duo', strengths: 'Amoxicillin 500mg + Clavulanic Acid 125mg', defaultReason: 'Bacterial Infection', defaultDosage: '625mg', defaultFrequency: 'Twice daily (BD)', defaultDuration: '5 days' },
+  { term: 'Taxim', displayName: 'Taxim O', strengths: 'Cefixime 200mg Oral Tablet', defaultReason: 'Bacterial Infection', defaultDosage: '200mg', defaultFrequency: 'Twice daily (BD)', defaultDuration: '5 days' },
+  { term: 'Metrogyl', displayName: 'Metrogyl', strengths: '400mg Oral Tablet', defaultReason: 'Amoebiasis / Infection', defaultDosage: '400mg', defaultFrequency: 'Three times daily (TDS)', defaultDuration: '5 days' },
+  { term: 'Norflox', displayName: 'Norflox TZ', strengths: 'Norfloxacin + Tinidazole', defaultReason: 'Diarrhea / Dysentery', defaultDosage: '1 Tablet', defaultFrequency: 'Twice daily (BD)', defaultDuration: '3 days' },
+  { term: 'O2', displayName: 'O2', strengths: 'Ofloxacin 200mg + Ornidazole 500mg', defaultReason: 'Diarrhea / Infection', defaultDosage: '1 Tablet', defaultFrequency: 'Twice daily (BD)', defaultDuration: '3 days' },
+  { term: 'Zifi', displayName: 'Zifi 200', strengths: 'Cefixime 200mg Oral Tablet', defaultReason: 'Bacterial Infection', defaultDosage: '200mg', defaultFrequency: 'Twice daily (BD)', defaultDuration: '5 days' },
+  { term: 'Cefakind', displayName: 'Cefakind 500', strengths: 'Cefuroxime 500mg Oral Tablet', defaultReason: 'Bacterial Infection', defaultDosage: '500mg', defaultFrequency: 'Twice daily (BD)', defaultDuration: '5 days' },
+  // Acidity / Digestion
+  { term: 'Pan', displayName: 'Pan 40', strengths: 'Pantoprazole 40mg Oral Tablet', defaultReason: 'Acidity / Gastritis', defaultDosage: '40mg', defaultFrequency: 'Once daily (OD) - Before Breakfast', defaultDuration: '5 days' },
+  { term: 'Pantocid', displayName: 'Pantocid DSR', strengths: 'Pantoprazole 40mg + Domperidone 30mg', defaultReason: 'Acidity / Nausea', defaultDosage: '1 Capsule', defaultFrequency: 'Once daily (OD) - Before Breakfast', defaultDuration: '5 days' },
+  { term: 'Omee', displayName: 'Omee', strengths: 'Omeprazole 20mg Oral Capsule', defaultReason: 'Acidity', defaultDosage: '20mg', defaultFrequency: 'Once daily (OD)', defaultDuration: '5 days' },
+  { term: 'Rantac', displayName: 'Rantac 150', strengths: 'Ranitidine 150mg Oral Tablet', defaultReason: 'Acidity', defaultDosage: '150mg', defaultFrequency: 'Twice daily (BD)', defaultDuration: '5 days' },
+  { term: 'Digene', displayName: 'Digene Antacid', strengths: 'Oral Liquid / Tablet', defaultReason: 'Acidity', defaultDosage: '10ml / 1 Tablet', defaultFrequency: 'As needed (SOS)', defaultDuration: '3 days' },
+  // Allergies, Cough, Cold
+  { term: 'Allegra', displayName: 'Allegra', strengths: '120mg, 180mg Oral Tablet', defaultReason: 'Allergy', defaultDosage: '120mg', defaultFrequency: 'Once daily (OD)', defaultDuration: '5 days' },
+  { term: 'Okacet', displayName: 'Okacet', strengths: 'Cetirizine 10mg Oral Tablet', defaultReason: 'Allergy / Cold', defaultDosage: '10mg', defaultFrequency: 'Once daily (OD) - Bedtime', defaultDuration: '3 days' },
+  { term: 'Montair', displayName: 'Montair LC', strengths: 'Montelukast 10mg + Levocetirizine 5mg', defaultReason: 'Allergy / Asthma', defaultDosage: '1 Tablet', defaultFrequency: 'Once daily (OD) - Bedtime', defaultDuration: '5 days' },
+  { term: 'Honitus', displayName: 'Dabur Honitus', strengths: 'Herbal Cough Syrup', defaultReason: 'Cough', defaultDosage: '10ml', defaultFrequency: 'Three times daily (TDS)', defaultDuration: '5 days' },
+  { term: 'Ascoril', displayName: 'Ascoril LS', strengths: 'Expectorant Syrup', defaultReason: 'Cough with Phlegm', defaultDosage: '10ml', defaultFrequency: 'Three times daily (TDS)', defaultDuration: '5 days' },
+  { term: 'Corex', displayName: 'Corex DX', strengths: 'Cough Syrup', defaultReason: 'Dry Cough', defaultDosage: '10ml', defaultFrequency: 'Twice daily (BD)', defaultDuration: '3 days' },
+  // Nausea / Vomiting
+  { term: 'Ondem', displayName: 'Ondem 4', strengths: 'Ondansetron 4mg Oral Tablet', defaultReason: 'Nausea / Vomiting', defaultDosage: '4mg', defaultFrequency: 'As needed (SOS)', defaultDuration: '2 days' },
+  { term: 'Vomitrol', displayName: 'Vomitrol', strengths: 'Oral Tablet', defaultReason: 'Vomiting', defaultDosage: '1 Tablet', defaultFrequency: 'As needed (SOS)', defaultDuration: '2 days' },
+  // Chronic (BP, Diabetes, Thyroid)
+  { term: 'Telma', displayName: 'Telma 40', strengths: 'Telmisartan 40mg Oral Tablet', defaultReason: 'Hypertension (BP)', defaultDosage: '40mg', defaultFrequency: 'Once daily (OD)', defaultDuration: '1 month' },
+  { term: 'Amlokind', displayName: 'Amlokind 5', strengths: 'Amlodipine 5mg Oral Tablet', defaultReason: 'Hypertension (BP)', defaultDosage: '5mg', defaultFrequency: 'Once daily (OD)', defaultDuration: '1 month' },
+  { term: 'Glycomet', displayName: 'Glycomet 500', strengths: 'Metformin 500mg Oral Tablet', defaultReason: 'Diabetes', defaultDosage: '500mg', defaultFrequency: 'Twice daily (BD) - After Meals', defaultDuration: '1 month' },
+  { term: 'Amaryl', displayName: 'Amaryl 1mg', strengths: 'Glimepiride 1mg Oral Tablet', defaultReason: 'Diabetes', defaultDosage: '1mg', defaultFrequency: 'Once daily (OD) - Before Breakfast', defaultDuration: '1 month' },
+  { term: 'Thyronorm', displayName: 'Thyronorm', strengths: '25mcg, 50mcg, 75mcg, 100mcg', defaultReason: 'Hypothyroidism', defaultDosage: '50mcg', defaultFrequency: 'Once daily (OD) - Empty Stomach', defaultDuration: '1 month' },
+  { term: 'Atorva', displayName: 'Atorva 10', strengths: 'Atorvastatin 10mg Oral Tablet', defaultReason: 'High Cholesterol', defaultDosage: '10mg', defaultFrequency: 'Once daily (OD) - Bedtime', defaultDuration: '1 month' },
+  { term: 'Rosuvas', displayName: 'Rosuvas 10', strengths: 'Rosuvastatin 10mg Oral Tablet', defaultReason: 'High Cholesterol', defaultDosage: '10mg', defaultFrequency: 'Once daily (OD) - Bedtime', defaultDuration: '1 month' },
+  // Supplements / Basics
+  { term: 'Shelcal', displayName: 'Shelcal 500', strengths: 'Calcium 500mg + Vitamin D3', defaultReason: 'Calcium Supplement', defaultDosage: '1 Tablet', defaultFrequency: 'Once daily (OD)', defaultDuration: '1 month' },
+  { term: 'Neurobion', displayName: 'Neurobion Forte', strengths: 'Vitamin B Complex', defaultReason: 'Vitamin B Deficiency', defaultDosage: '1 Tablet', defaultFrequency: 'Once daily (OD)', defaultDuration: '1 month' },
+  { term: 'Ecosprin', displayName: 'Ecosprin 75', strengths: 'Aspirin 75mg', defaultReason: 'Heart Health / Blood Thinner', defaultDosage: '75mg', defaultFrequency: 'Once daily (OD)', defaultDuration: '1 month' },
+]
+
+const DOSAGE_OPTIONS = ['100mg', '250mg', '500mg', '650mg', '1g', '5ml', '10ml', '1 drop', '2 drops']
+const FREQUENCY_OPTIONS = ['Once daily (OD)', 'Twice daily (BD)', 'Three times daily (TDS)', 'Four times daily (QID)', 'As needed (SOS)']
+const DURATION_OPTIONS = ['1 day', '2 days', '3 days', '5 days', '7 days', '10 days', '14 days', '1 month', 'Ongoing']
+const REASON_OPTIONS = ['Fever', 'Pain', 'Infection', 'Cough', 'Cold', 'Nausea/Vomiting', 'Acidity/Gas', 'Allergy', 'Asthma', 'Diabetes', 'Hypertension']
 
 export default function DoctorDashboardPage() {
   const { user } = useAuth()
@@ -23,6 +74,11 @@ export default function DoctorDashboardPage() {
   const [showRxForm, setShowRxForm] = useState(false)
   const [rxData, setRxData] = useState({ diagnosis: '', treatmentNotes: '', medicines: [{ ...emptyMedicine }] })
   const [rxLoading, setRxLoading] = useState(false)
+
+  // Autocomplete state
+  const [rxSearchCache, setRxSearchCache] = useState({})
+  const [rxSuggestions, setRxSuggestions] = useState([])
+  const [focusedMedIndex, setFocusedMedIndex] = useState(null)
 
   // Patient history expansion
   const [expandedPatient, setExpandedPatient] = useState(null)
@@ -164,6 +220,42 @@ export default function DoctorDashboardPage() {
     }))
   }
 
+  const handleMedicineSearch = async (idx, query) => {
+    updateMedicine(idx, 'medicineName', query)
+    if (!query || query.length < 2) {
+      setRxSuggestions([])
+      return
+    }
+
+    if (rxSearchCache[query]) {
+      setRxSuggestions(rxSearchCache[query])
+      return
+    }
+
+    try {
+      const qLower = query.toLowerCase()
+      const localMatches = LOCAL_MEDICINES.filter(m => 
+        m.displayName.toLowerCase().includes(qLower) || 
+        m.term.toLowerCase().includes(qLower)
+      )
+
+      const res = await fetch(`https://clinicaltables.nlm.nih.gov/api/rxterms/v3/search?terms=${encodeURIComponent(query)}&ef=DISPLAY_NAME,STRENGTHS_AND_FORMS`)
+      const data = await res.json()
+      // data format: [count, [terms], null, [[DISPLAY_NAME...], [STRENGTHS...]]]
+      const apiSuggestions = (data[1] || []).map((term, i) => ({
+        term,
+        displayName: data[3]?.[0]?.[i] || term,
+        strengths: data[3]?.[1]?.[i] || ''
+      }))
+      
+      const combined = [...localMatches, ...apiSuggestions]
+      setRxSearchCache(prev => ({ ...prev, [query]: combined }))
+      setRxSuggestions(combined)
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
   const submitPrescription = async (e) => {
     e.preventDefault()
     if (!activeConsultation) return
@@ -179,8 +271,8 @@ export default function DoctorDashboardPage() {
       return
     }
     for (const med of validMeds) {
-      if (!med.dosage.trim() || !med.frequency.trim() || !med.duration.trim()) {
-        toast.error(`Complete all fields for ${med.medicineName}`)
+      if (!med.dosage.trim() || !med.frequency.trim() || !med.duration.trim() || !med.reasonForChosen.trim()) {
+        toast.error(`Complete all marked fields for ${med.medicineName}`)
         return
       }
     }
@@ -396,6 +488,11 @@ export default function DoctorDashboardPage() {
                   />
                 </div>
 
+                <datalist id="dosage-options">{DOSAGE_OPTIONS.map(o => <option key={o} value={o} />)}</datalist>
+                <datalist id="frequency-options">{FREQUENCY_OPTIONS.map(o => <option key={o} value={o} />)}</datalist>
+                <datalist id="duration-options">{DURATION_OPTIONS.map(o => <option key={o} value={o} />)}</datalist>
+                <datalist id="reason-options">{REASON_OPTIONS.map(o => <option key={o} value={o} />)}</datalist>
+
                 {/* Medicines (manual input) */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
@@ -415,16 +512,59 @@ export default function DoctorDashboardPage() {
                             </button>
                           )}
                         </div>
-                        <div className="grid gap-2 sm:grid-cols-2">
+                        <div className="grid gap-2 sm:grid-cols-2 mt-2">
+                          <div className="relative sm:col-span-2">
+                            <input
+                              type="text"
+                              placeholder="Medicine name (e.g. Tylenol) *"
+                              className="w-full rounded-lg border-0 p-2 text-sm ring-1 ring-inset ring-ink/10 bg-white"
+                              value={med.medicineName}
+                              onChange={e => {
+                                handleMedicineSearch(idx, e.target.value)
+                                setFocusedMedIndex(idx)
+                              }}
+                              onFocus={() => setFocusedMedIndex(idx)}
+                              onBlur={() => setTimeout(() => setFocusedMedIndex(null), 200)}
+                            />
+                            {focusedMedIndex === idx && rxSuggestions.length > 0 && (
+                              <div className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-lg bg-white py-1 shadow-lg ring-1 ring-ink/5">
+                                {rxSuggestions.map((sug, i) => (
+                                  <div
+                                    key={i}
+                                    className="cursor-pointer px-3 py-2 text-sm hover:bg-canvas/80"
+                                    onClick={() => {
+                                      // Multi-field update:
+                                      setRxData(prev => ({
+                                        ...prev,
+                                        medicines: prev.medicines.map((m, i) => {
+                                          if (i === idx) {
+                                            return {
+                                              ...m,
+                                              medicineName: sug.displayName,
+                                              reasonForChosen: sug.defaultReason || m.reasonForChosen,
+                                              dosage: sug.defaultDosage || m.dosage,
+                                              frequency: sug.defaultFrequency || m.frequency,
+                                              duration: sug.defaultDuration || m.duration,
+                                            }
+                                          }
+                                          return m
+                                        })
+                                      }))
+                                      
+                                      setRxSuggestions([])
+                                      setFocusedMedIndex(null)
+                                    }}
+                                  >
+                                    <div className="font-medium text-ink/90">{sug.displayName}</div>
+                                    {sug.strengths && <div className="text-[10px] text-ink/50">{sug.strengths}</div>}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                           <input
                             type="text"
-                            placeholder="Medicine name *"
-                            className="rounded-lg border-0 p-2 text-sm ring-1 ring-inset ring-ink/10 bg-white"
-                            value={med.medicineName}
-                            onChange={e => updateMedicine(idx, 'medicineName', e.target.value)}
-                          />
-                          <input
-                            type="text"
+                            list="dosage-options"
                             placeholder="Dosage (e.g. 500mg) *"
                             className="rounded-lg border-0 p-2 text-sm ring-1 ring-inset ring-ink/10 bg-white"
                             value={med.dosage}
@@ -432,6 +572,7 @@ export default function DoctorDashboardPage() {
                           />
                           <input
                             type="text"
+                            list="frequency-options"
                             placeholder="Frequency (e.g. twice daily) *"
                             className="rounded-lg border-0 p-2 text-sm ring-1 ring-inset ring-ink/10 bg-white"
                             value={med.frequency}
@@ -439,10 +580,19 @@ export default function DoctorDashboardPage() {
                           />
                           <input
                             type="text"
+                            list="duration-options"
                             placeholder="Duration (e.g. 7 days) *"
                             className="rounded-lg border-0 p-2 text-sm ring-1 ring-inset ring-ink/10 bg-white"
                             value={med.duration}
                             onChange={e => updateMedicine(idx, 'duration', e.target.value)}
+                          />
+                          <input
+                            type="text"
+                            list="reason-options"
+                            placeholder="Reason for chosen *"
+                            className="rounded-lg border-0 p-2 text-sm ring-1 ring-inset ring-ink/10 bg-white"
+                            value={med.reasonForChosen}
+                            onChange={e => updateMedicine(idx, 'reasonForChosen', e.target.value)}
                           />
                         </div>
                         <select

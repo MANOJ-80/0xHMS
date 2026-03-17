@@ -6,6 +6,7 @@ const medicineItemSchema = new mongoose.Schema(
     dosage: { type: String, required: true, trim: true },
     frequency: { type: String, required: true, trim: true },
     duration: { type: String, required: true, trim: true },
+    reasonForChosen: { type: String, required: true, trim: true },
     route: { type: String, default: 'oral', trim: true },
     instructions: { type: String, default: '', trim: true },
   },

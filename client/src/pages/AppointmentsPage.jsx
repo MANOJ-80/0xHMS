@@ -17,6 +17,7 @@ export default function AppointmentsPage() {
   const [pageLoading, setPageLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [cancelTarget, setCancelTarget] = useState(null)
+  const [cancelReason, setCancelReason] = useState('')
 
   const [formData, setFormData] = useState({
     patientId: '',
@@ -96,8 +97,16 @@ export default function AppointmentsPage() {
 
   const handleCancel = async () => {
     if (!cancelTarget) return
+    if (!cancelReason.trim()) {
+      toast.error('Please provide a reason for cancellation')
+      return
+    }
+
     try {
-      await apiFetch(`/appointments/${cancelTarget}/cancel`, { method: 'PATCH' })
+      await apiFetch(`/appointments/${cancelTarget}/cancel`, { 
+        method: 'PATCH',
+        body: JSON.stringify({ reason: cancelReason }) 
+      })
       toast.success('Appointment cancelled')
       setPage(1) // reset pagination to show updated list
       fetchData()
@@ -105,6 +114,7 @@ export default function AppointmentsPage() {
       toast.error(err.message)
     } finally {
       setCancelTarget(null)
+      setCancelReason('')
     }
   }
 
@@ -120,8 +130,23 @@ export default function AppointmentsPage() {
         confirmLabel="Yes, Cancel"
         variant="danger"
         onConfirm={handleCancel}
-        onCancel={() => setCancelTarget(null)}
-      />
+        onCancel={() => {
+          setCancelTarget(null)
+          setCancelReason('')
+        }}
+      >
+        <div>
+          <label className="block text-sm font-medium text-ink">Cancellation Reason *</label>
+          <textarea
+            required
+            rows={3}
+            className="mt-1.5 block w-full rounded-xl border-0 p-3 text-sm ring-1 ring-inset ring-ink/10 focus:ring-2 focus:ring-ink"
+            placeholder="Reason for cancellation..."
+            value={cancelReason}
+            onChange={(e) => setCancelReason(e.target.value)}
+          />
+        </div>
+      </ConfirmModal>
 
       <div className="space-y-6">
         <h1 className="font-display text-2xl font-semibold">Appointments</h1>
