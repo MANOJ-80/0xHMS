@@ -7,3 +7,9 @@ build/
 !.env.example
 coverage/
 *.log
+4_modified.pdf
+4.pdf
+*.pdf
+*.docx
+*.doc
+*.svg
