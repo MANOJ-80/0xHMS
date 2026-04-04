@@ -65,6 +65,11 @@ const icons = {
       <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
     </svg>
   ),
+  history: (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  ),
   profile: (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -72,7 +77,8 @@ const icons = {
   ),
 }
 
-function getNavItems(role) {
+function getNavItems(user) {
+  const role = user?.role
   if (role === 'admin') {
     return [
       { to: '/', label: 'Overview', icon: icons.overview, end: true },
@@ -97,21 +103,33 @@ function getNavItems(role) {
     ]
   }
   if (role === 'doctor') {
-    return [
+    const items = [
       { to: '/doctor-dashboard', label: 'Dashboard', icon: icons.dashboard },
       { to: '/patients', label: 'Patients', icon: icons.patients },
       { to: '/prescriptions', label: 'Prescriptions', icon: icons.prescriptions },
+    ]
+    if (user?.linkedDoctorId) {
+      items.push({ to: `/doctors/${user.linkedDoctorId}`, label: 'My History', icon: icons.history })
+    }
+    items.push(
       { to: '/notifications', label: 'Notifications', icon: icons.notifications },
       { to: '/profile', label: 'Profile', icon: icons.profile },
-    ]
+    )
+    return items
   }
   if (role === 'patient') {
-    return [
+    const items = [
       { to: '/patient-dashboard', label: 'My Dashboard', icon: icons.dashboard },
       { to: '/prescriptions', label: 'Prescriptions', icon: icons.prescriptions },
+    ]
+    if (user?.linkedPatientId) {
+      items.push({ to: `/patients/${user.linkedPatientId}`, label: 'My History', icon: icons.history })
+    }
+    items.push(
       { to: '/notifications', label: 'Notifications', icon: icons.notifications },
       { to: '/profile', label: 'Profile', icon: icons.profile },
-    ]
+    )
+    return items
   }
   return []
 }
@@ -147,7 +165,7 @@ export default function App() {
     )
   }
 
-  const navItems = getNavItems(user.role)
+  const navItems = getNavItems(user)
   const homeRoute = user.role === 'patient' ? '/patient-dashboard' : user.role === 'doctor' ? '/doctor-dashboard' : '/'
   const roleLabel = user.role === 'admin' ? 'Administrator' : user.role === 'receptionist' ? 'Front Desk' : user.role === 'doctor' ? 'Doctor' : 'Patient'
 
