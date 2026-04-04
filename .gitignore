@@ -13,3 +13,11 @@ coverage/
 *.docx
 *.doc
 *.svg
+
+# Generated files
+prescription-*.txt
+project_report.md
+
+# Utility scripts
+server/clean_db.js
+server/clean_db.mjs
