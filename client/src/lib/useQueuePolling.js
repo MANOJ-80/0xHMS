@@ -3,7 +3,7 @@ import { connectSocket } from './socket'
 
 const POLL_INTERVAL = import.meta.env.VITE_POLL_INTERVAL
   ? Number(import.meta.env.VITE_POLL_INTERVAL)
-  : 5000
+  : 15000
 
 /**
  * Hybrid real-time hook — uses Socket.IO when available (local dev),

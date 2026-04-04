@@ -1,22 +1,34 @@
 import { NavLink, Route, Routes, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
-import DashboardPage from './pages/DashboardPage'
-import AppointmentsPage from './pages/AppointmentsPage'
-import PatientsPage from './pages/PatientsPage'
-import DoctorsPage from './pages/DoctorsPage'
-import LoginPage from './pages/LoginPage'
-import RegisterPage from './pages/RegisterPage'
-import CheckinPage from './pages/CheckinPage'
-import DoctorDashboardPage from './pages/DoctorDashboardPage'
-import PatientDashboardPage from './pages/PatientDashboardPage'
-import NotificationsPage from './pages/NotificationsPage'
-import PrescriptionsPage from './pages/PrescriptionsPage'
-import PatientHistoryPage from './pages/PatientHistoryPage'
-import DoctorHistoryPage from './pages/DoctorHistoryPage'
-import ProfilePage from './pages/ProfilePage'
+import { lazy, Suspense, useState } from 'react'
 import RoleGuard from './components/RoleGuard'
 import { useAuth } from './components/AuthProvider'
-import { useState } from 'react'
+import LoadingSpinner from './components/LoadingSpinner'
+
+// Lazy load all pages for code splitting
+const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const AppointmentsPage = lazy(() => import('./pages/AppointmentsPage'))
+const PatientsPage = lazy(() => import('./pages/PatientsPage'))
+const DoctorsPage = lazy(() => import('./pages/DoctorsPage'))
+const LoginPage = lazy(() => import('./pages/LoginPage'))
+const RegisterPage = lazy(() => import('./pages/RegisterPage'))
+const CheckinPage = lazy(() => import('./pages/CheckinPage'))
+const DoctorDashboardPage = lazy(() => import('./pages/DoctorDashboardPage'))
+const PatientDashboardPage = lazy(() => import('./pages/PatientDashboardPage'))
+const NotificationsPage = lazy(() => import('./pages/NotificationsPage'))
+const PrescriptionsPage = lazy(() => import('./pages/PrescriptionsPage'))
+const PatientHistoryPage = lazy(() => import('./pages/PatientHistoryPage'))
+const DoctorHistoryPage = lazy(() => import('./pages/DoctorHistoryPage'))
+const ProfilePage = lazy(() => import('./pages/ProfilePage'))
+
+// Page loading fallback
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center min-h-[50vh]">
+      <LoadingSpinner message="Loading..." />
+    </div>
+  )
+}
 
 /* ── SVG icon helpers (inline to avoid a dependency) ── */
 const icons = {
@@ -156,11 +168,13 @@ export default function App() {
     return (
       <>
         <Toaster position="top-right" toastOptions={{ className: 'text-sm font-body', duration: 4000 }} />
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
+        </Suspense>
       </>
     )
   }
@@ -268,28 +282,30 @@ export default function App() {
 
           <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
             <div className="mx-auto max-w-7xl">
-              <Routes>
-                {/* Admin/Receptionist */}
-                <Route path="/" element={<RoleGuard roles={['admin', 'receptionist']}><DashboardPage /></RoleGuard>} />
-                <Route path="/checkin" element={<RoleGuard roles={['admin', 'receptionist']}><CheckinPage /></RoleGuard>} />
-                <Route path="/appointments" element={<RoleGuard roles={['admin', 'receptionist']}><AppointmentsPage /></RoleGuard>} />
-                <Route path="/patients" element={<RoleGuard roles={['admin', 'receptionist', 'doctor']}><PatientsPage /></RoleGuard>} />
-                <Route path="/patients/:id" element={<RoleGuard roles={['admin', 'receptionist', 'doctor', 'patient']}><PatientHistoryPage /></RoleGuard>} />
-                <Route path="/doctors" element={<RoleGuard roles={['admin', 'receptionist']}><DoctorsPage /></RoleGuard>} />
-                <Route path="/doctors/:id" element={<RoleGuard roles={['admin', 'receptionist', 'doctor']}><DoctorHistoryPage /></RoleGuard>} />
-                <Route path="/doctor-dashboard" element={<RoleGuard roles={['doctor', 'admin']}><DoctorDashboardPage /></RoleGuard>} />
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
+                  {/* Admin/Receptionist */}
+                  <Route path="/" element={<RoleGuard roles={['admin', 'receptionist']}><DashboardPage /></RoleGuard>} />
+                  <Route path="/checkin" element={<RoleGuard roles={['admin', 'receptionist']}><CheckinPage /></RoleGuard>} />
+                  <Route path="/appointments" element={<RoleGuard roles={['admin', 'receptionist']}><AppointmentsPage /></RoleGuard>} />
+                  <Route path="/patients" element={<RoleGuard roles={['admin', 'receptionist', 'doctor']}><PatientsPage /></RoleGuard>} />
+                  <Route path="/patients/:id" element={<RoleGuard roles={['admin', 'receptionist', 'doctor', 'patient']}><PatientHistoryPage /></RoleGuard>} />
+                  <Route path="/doctors" element={<RoleGuard roles={['admin', 'receptionist']}><DoctorsPage /></RoleGuard>} />
+                  <Route path="/doctors/:id" element={<RoleGuard roles={['admin', 'receptionist', 'doctor']}><DoctorHistoryPage /></RoleGuard>} />
+                  <Route path="/doctor-dashboard" element={<RoleGuard roles={['doctor', 'admin']}><DoctorDashboardPage /></RoleGuard>} />
 
-                {/* Patient */}
-                <Route path="/patient-dashboard" element={<RoleGuard roles={['patient']}><PatientDashboardPage /></RoleGuard>} />
+                  {/* Patient */}
+                  <Route path="/patient-dashboard" element={<RoleGuard roles={['patient']}><PatientDashboardPage /></RoleGuard>} />
 
-                {/* Shared pages */}
-                <Route path="/notifications" element={<NotificationsPage />} />
-                <Route path="/prescriptions" element={<RoleGuard roles={['admin', 'doctor', 'patient']}><PrescriptionsPage /></RoleGuard>} />
-                <Route path="/profile" element={<ProfilePage />} />
+                  {/* Shared pages */}
+                  <Route path="/notifications" element={<NotificationsPage />} />
+                  <Route path="/prescriptions" element={<RoleGuard roles={['admin', 'doctor', 'patient']}><PrescriptionsPage /></RoleGuard>} />
+                  <Route path="/profile" element={<ProfilePage />} />
 
-                {/* Fallback */}
-                <Route path="*" element={<Navigate to={homeRoute} replace />} />
-              </Routes>
+                  {/* Fallback */}
+                  <Route path="*" element={<Navigate to={homeRoute} replace />} />
+                </Routes>
+              </Suspense>
             </div>
           </main>
         </div>
