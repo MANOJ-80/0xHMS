@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs'
+import mongoose from 'mongoose'
 import { Patient } from '../models/Patient.js'
 import { Doctor } from '../models/Doctor.js'
 import { User } from '../models/User.js'
@@ -6,16 +7,7 @@ import { ApiError } from '../utils/ApiError.js'
 import { asyncHandler } from '../utils/asyncHandler.js'
 import { sendSuccess } from '../utils/response.js'
 import { signAccessToken, signRefreshToken } from '../utils/tokens.js'
-
-function generatePatientCode() {
-  return `PAT-${Date.now()}`
-}
-
-function generateDoctorCode(fullName) {
-  const parts = fullName.split(' ')
-  const initials = parts.map(p => p[0].toUpperCase()).join('')
-  return `DOC-${initials}-${Math.floor(100 + Math.random() * 900)}`
-}
+import { generatePatientCode, generateDoctorCode } from '../utils/code.js'
 
 export const registerPatient = asyncHandler(async (req, res) => {
   const { fullName, email, phone, password, dateOfBirth, gender } = req.body
@@ -37,23 +29,45 @@ export const registerPatient = asyncHandler(async (req, res) => {
 
   const passwordHash = await bcrypt.hash(password, 10)
 
-  const patient = await Patient.create({
-    patientCode: generatePatientCode(),
-    fullName,
-    email,
-    phone: cleanPhone,
-    dateOfBirth,
-    gender,
-  })
+  // Use transaction to prevent orphaned records if User creation fails
+  const session = await mongoose.startSession()
+  let patient, user
 
-  const user = await User.create({
-    fullName,
-    email,
-    phone: cleanPhone,
-    passwordHash,
-    role: 'patient',
-    linkedPatientId: patient._id,
-  })
+  try {
+    await session.withTransaction(async () => {
+      const [createdPatient] = await Patient.create(
+        [
+          {
+            patientCode: generatePatientCode(),
+            fullName,
+            email,
+            phone: cleanPhone,
+            dateOfBirth,
+            gender,
+          },
+        ],
+        { session },
+      )
+      patient = createdPatient
+
+      const [createdUser] = await User.create(
+        [
+          {
+            fullName,
+            email,
+            phone: cleanPhone,
+            passwordHash,
+            role: 'patient',
+            linkedPatientId: patient._id,
+          },
+        ],
+        { session },
+      )
+      user = createdUser
+    })
+  } finally {
+    await session.endSession()
+  }
 
   const payload = {
     sub: user._id.toString(),
@@ -106,27 +120,58 @@ export const registerStaff = asyncHandler(async (req, res) => {
     }
   }
 
-  const user = await User.create({
-    fullName,
-    email,
-    phone: cleanPhone,
-    passwordHash,
-    role,
-  })
+  let user, doctor = null
 
-  let doctor = null
   if (role === 'doctor') {
-    doctor = await Doctor.create({
-      userId: user._id,
-      doctorCode: generateDoctorCode(fullName),
+    // Use transaction for doctor registration to prevent orphaned records
+    const session = await mongoose.startSession()
+    try {
+      await session.withTransaction(async () => {
+        const [createdUser] = await User.create(
+          [
+            {
+              fullName,
+              email,
+              phone: cleanPhone,
+              passwordHash,
+              role,
+            },
+          ],
+          { session },
+        )
+        user = createdUser
+
+        const [createdDoctor] = await Doctor.create(
+          [
+            {
+              userId: user._id,
+              doctorCode: generateDoctorCode(fullName),
+              fullName,
+              specialization,
+              departmentId,
+              allowAutoAssignment: true,
+              isActive: true,
+            },
+          ],
+          { session },
+        )
+        doctor = createdDoctor
+
+        user.linkedDoctorId = doctor._id
+        await user.save({ session })
+      })
+    } finally {
+      await session.endSession()
+    }
+  } else {
+    // Receptionist - no linked record, no transaction needed
+    user = await User.create({
       fullName,
-      specialization,
-      departmentId,
-      allowAutoAssignment: true,
-      isActive: true,
+      email,
+      phone: cleanPhone,
+      passwordHash,
+      role,
     })
-    user.linkedDoctorId = doctor._id
-    await user.save()
   }
 
   return sendSuccess(

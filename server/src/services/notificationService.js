@@ -222,7 +222,7 @@ export async function sendNotification({
     recipient,
     subject,
     message,
-    status: scheduledFor ? 'pending' : 'pending',
+    status: scheduledFor ? 'scheduled' : 'pending',
     scheduledFor,
   })
 

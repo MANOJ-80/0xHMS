@@ -67,7 +67,9 @@ export default function PrescriptionsPage() {
         lines.push(`     Frequency: ${med.frequency || 'N/A'}`)
         lines.push(`     Duration:  ${med.duration || 'N/A'}`)
         if (med.route) lines.push(`     Route:     ${med.route}`)
+        if (med.reasonForChosen) lines.push(`     Reason:    ${med.reasonForChosen}`)
         if (med.specialInstructions) lines.push(`     Note:      ${med.specialInstructions}`)
+        if (med.instructions) lines.push(`     Instructions: ${med.instructions}`)
         lines.push('')
       })
     } else {
@@ -184,24 +186,27 @@ export default function PrescriptionsPage() {
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-ink/50 mb-3">Medicines</p>
                 <div className="space-y-2">
-                  {selected.medicines.map((med, i) => (
-                    <div key={i} className="rounded-xl bg-canvas/50 p-3">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-ink">{med.medicineName}</p>
-                          <p className="text-xs text-ink/50">{med.dosage} &middot; {med.frequency} &middot; {med.duration}</p>
+                    {selected.medicines.map((med, i) => (
+                      <div key={i} className="rounded-xl bg-canvas/50 p-3">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-ink">{med.medicineName}</p>
+                            <p className="text-xs text-ink/50">{med.dosage} &middot; {med.frequency} &middot; {med.duration}</p>
+                          </div>
+                          {med.route && (
+                            <span className="rounded-full bg-teal/10 px-2 py-0.5 text-[10px] font-semibold text-teal">
+                              {med.route}
+                            </span>
+                          )}
                         </div>
-                        {med.route && (
-                          <span className="rounded-full bg-teal/10 px-2 py-0.5 text-[10px] font-semibold text-teal">
-                            {med.route}
-                          </span>
+                        {med.reasonForChosen && (
+                          <p className="mt-1 text-xs text-ink/60">Reason: {med.reasonForChosen}</p>
+                        )}
+                        {(med.specialInstructions || med.instructions) && (
+                          <p className="mt-1 text-xs text-ink/60 italic">{med.specialInstructions || med.instructions}</p>
                         )}
                       </div>
-                      {med.specialInstructions && (
-                        <p className="mt-1 text-xs text-ink/60 italic">{med.specialInstructions}</p>
-                      )}
-                    </div>
-                  ))}
+                    ))}
                 </div>
               </div>
             )}

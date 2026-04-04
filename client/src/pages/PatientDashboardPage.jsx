@@ -22,6 +22,7 @@ export default function PatientDashboardPage() {
     doctorId: '',
     date: new Date().toISOString().split('T')[0],
     time: '09:00',
+    slotMinutes: 15, // Default, updated from doctor's schedule
   })
 
   const [bookLoading, setBookLoading] = useState(false)
@@ -73,9 +74,11 @@ export default function PatientDashboardPage() {
 
     try {
       const slotStart = new Date(`${bookData.date}T${bookData.time}:00`)
-      const slotEnd = new Date(slotStart.getTime() + 15 * 60000)
-      const selectedDept = departments.find(d => d._id === bookData.departmentId)
+      // Use doctor's slot duration or default
       const selectedDoc = doctors.find(d => d._id === bookData.doctorId)
+      const slotDuration = selectedDoc?.scheduleTemplate?.[0]?.slotMinutes || bookData.slotMinutes || 15
+      const slotEnd = new Date(slotStart.getTime() + slotDuration * 60000)
+      const selectedDept = departments.find(d => d._id === bookData.departmentId)
 
       await apiFetch('/appointments', {
         method: 'POST',

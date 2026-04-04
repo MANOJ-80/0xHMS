@@ -173,6 +173,9 @@ export const markQueueTokenMissed = asyncHandler(async (req, res) => {
     throw new ApiError(400, `Cannot mark token as missed in status: ${queueToken.queueStatus}`)
   }
 
+  // BIZ-6: Track if patient was in_consultation before marking as missed
+  const wasInConsultation = queueToken.queueStatus === 'in_consultation'
+
   queueToken.queueStatus = 'missed'
   queueToken.isActive = false
   await queueToken.save()
@@ -180,6 +183,14 @@ export const markQueueTokenMissed = asyncHandler(async (req, res) => {
   // Mark the check-in as expired so the patient can check in again
   if (queueToken.checkinId) {
     await Checkin.findByIdAndUpdate(queueToken.checkinId, { status: 'expired' })
+  }
+
+  // BIZ-6: If patient was in consultation, the doctor is now free
+  // Update doctor status to available since the consultation was interrupted
+  if (wasInConsultation && queueToken.assignedDoctorId) {
+    await Doctor.findByIdAndUpdate(queueToken.assignedDoctorId, {
+      availabilityStatus: 'available',
+    })
   }
 
   if (queueToken.assignedDoctorId) {

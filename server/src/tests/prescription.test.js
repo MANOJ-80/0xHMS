@@ -121,6 +121,12 @@ describe('Prescription API', () => {
     })
 
     it('should reject incomplete medicine items', async () => {
+      // Mark the existing checkin as completed before creating a new one (due to unique index on patientId+status)
+      await Checkin.updateMany(
+        { patientId: patient._id, status: { $in: ['checked_in', 'queued'] } },
+        { $set: { status: 'completed' } }
+      )
+
       // Create a new checkin + queue token + consultation for this test
       const chk2 = await Checkin.create({
         checkinNumber: generateCode('CHK'),

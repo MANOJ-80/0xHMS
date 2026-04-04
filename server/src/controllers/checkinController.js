@@ -3,28 +3,37 @@ import { Checkin } from '../models/Checkin.js'
 import { Doctor } from '../models/Doctor.js'
 import { Patient } from '../models/Patient.js'
 import { QueueToken } from '../models/QueueToken.js'
+import { SystemConfig } from '../models/SystemConfig.js'
 import { createAuditLog } from '../services/auditService.js'
 import { assignSpecificDoctor, logAssignment } from '../services/assignmentService.js'
 import { notifyDoctorAssignment } from '../services/notificationService.js'
-import { recalculateDoctorQueue } from '../services/queueService.js'
 import { emitQueueUpdate } from '../services/socketService.js'
 import { generateCode } from '../utils/code.js'
 import { ApiError } from '../utils/ApiError.js'
 import { asyncHandler } from '../utils/asyncHandler.js'
 import { sendSuccess } from '../utils/response.js'
 
+/**
+ * Get the next token sequence number atomically using findOneAndUpdate.
+ * This prevents race conditions where two concurrent check-ins could get the same sequence.
+ */
 async function getNextTokenSequence(departmentId) {
-  const start = new Date()
-  start.setHours(0, 0, 0, 0)
-  const end = new Date(start)
-  end.setDate(end.getDate() + 1)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const dateKey = today.toISOString().slice(0, 10) // YYYY-MM-DD format
+  const counterKey = `tokenSequence:${departmentId}:${dateKey}`
 
-  const count = await QueueToken.countDocuments({
-    departmentId,
-    createdAt: { $gte: start, $lt: end },
-  })
+  // Atomically increment and return the new value
+  const result = await SystemConfig.findOneAndUpdate(
+    { key: counterKey },
+    { 
+      $inc: { value: 1 },
+      $setOnInsert: { key: counterKey, description: `Token sequence counter for department ${departmentId} on ${dateKey}` }
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  )
 
-  return count + 1
+  return result.value
 }
 
 /**
@@ -50,6 +59,12 @@ export const createCheckin = asyncHandler(async (req, res) => {
 
   if (!patientId || !departmentId) {
     throw new ApiError(400, 'patientId and departmentId are required')
+  }
+
+  // BIZ-7: Validate that if appointmentId is provided, it belongs to the resolved patient
+  // This prevents walk-in check-ins from corrupting another patient's appointment
+  if (appointment && appointment.patientId.toString() !== patientId) {
+    throw new ApiError(400, 'The provided appointmentId does not belong to this patient')
   }
 
   // Doctor assignment is now MANDATORY
@@ -121,6 +136,7 @@ export const createCheckin = asyncHandler(async (req, res) => {
   }
 
   // Log the explicit doctor assignment
+  // Note: logAssignment internally calls recalculateDoctorQueue, so no need to call it again
   await logAssignment({
     queueTokenId: queueToken._id,
     patientId,
@@ -134,8 +150,6 @@ export const createCheckin = asyncHandler(async (req, res) => {
     estimatedWaitAfter: doctorResult.stats.estimatedWaitMinutes,
     assignmentType: 'initial',
   })
-
-  await recalculateDoctorQueue(doctorResult.doctor._id)
 
   await createAuditLog({
     req,

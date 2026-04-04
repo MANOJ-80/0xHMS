@@ -15,11 +15,16 @@ const doctorAssignmentSchema = new mongoose.Schema(
     estimatedWaitAfter: { type: Number, default: null },
     assignedByType: { type: String, enum: ['system', 'doctor', 'receptionist', 'admin', 'patient'], default: 'system' },
     assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    // BIZ-4: Add status field for soft-delete capability (for audit purposes)
+    status: { type: String, enum: ['active', 'cancelled', 'completed'], default: 'active' },
+    cancelledAt: { type: Date, default: null },
+    cancellationReason: { type: String, default: '' },
   },
   { timestamps: { createdAt: true, updatedAt: false } },
 )
 
 doctorAssignmentSchema.index({ queueTokenId: 1 })
 doctorAssignmentSchema.index({ assignedDoctorId: 1, createdAt: -1 })
+doctorAssignmentSchema.index({ status: 1 })
 
 export const DoctorAssignment = mongoose.model('DoctorAssignment', doctorAssignmentSchema)

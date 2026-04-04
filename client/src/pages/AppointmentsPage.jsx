@@ -257,7 +257,7 @@ export default function AppointmentsPage() {
                         </td>
                         <td className="px-4 py-3"><StatusBadge status={apt.status} /></td>
                         <td className="px-4 py-3">
-                          {apt.status === 'scheduled' && (
+                          {(apt.status === 'scheduled' || apt.status === 'checked_in') && (
                             <button
                               onClick={() => setCancelTarget(apt._id)}
                               className="rounded-full bg-coral/10 px-3 py-1 text-xs font-medium text-coral hover:bg-coral/20"

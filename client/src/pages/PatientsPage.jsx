@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import SectionCard from '../components/SectionCard'
 import StatusBadge from '../components/StatusBadge'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -9,6 +10,7 @@ import toast from 'react-hot-toast'
 const PAGE_SIZE = 12
 
 export default function PatientsPage() {
+  const navigate = useNavigate()
   const [patients, setPatients] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -69,9 +71,9 @@ export default function PatientsPage() {
                 </thead>
                 <tbody className="divide-y divide-ink/5 bg-white/70">
                   {paginated.length > 0 ? paginated.map((patient) => (
-                    <tr key={patient._id} className="hover:bg-canvas/30 transition">
+                    <tr key={patient._id} onClick={() => navigate(`/patients/${patient._id}`)} className="hover:bg-canvas/30 transition cursor-pointer">
                       <td className="px-4 py-3 font-mono text-xs text-ink/50">{patient.patientCode}</td>
-                      <td className="px-4 py-3 font-medium">{patient.fullName}</td>
+                      <td className="px-4 py-3 font-medium text-teal hover:underline">{patient.fullName}</td>
                       <td className="px-4 py-3 text-ink/70">{patient.phone || 'N/A'}</td>
                       <td className="px-4 py-3 text-ink/70">{patient.email || 'N/A'}</td>
                       <td className="px-4 py-3">

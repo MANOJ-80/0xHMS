@@ -13,10 +13,51 @@ function todayRange() {
   return { $gte: start, $lt: end }
 }
 
+/**
+ * BIZ-5: Calculate actual average wait time from QueueToken data
+ * Wait time = actualConsultationStartAt - createdAt (when patient was checked in)
+ */
+async function calculateAverageWaitMinutes() {
+  const today = todayRange()
+  
+  // Get tokens that have started consultation today (have actual wait time data)
+  const tokensWithWaitTime = await QueueToken.find({
+    actualConsultationStartAt: today,
+    createdAt: { $exists: true },
+  }).select('createdAt actualConsultationStartAt')
+
+  if (tokensWithWaitTime.length === 0) {
+    // Fallback: estimate based on current queue if no completed data
+    const [activeQueueLength, doctorsActive] = await Promise.all([
+      QueueToken.countDocuments({
+        queueStatus: { $in: ['waiting', 'assigned', 'called'] },
+        isActive: true,
+      }),
+      Doctor.countDocuments({
+        isActive: true,
+        availabilityStatus: { $in: ['available', 'busy', 'overrun'] },
+      }),
+    ])
+    // Estimate: average 10 min per patient, distributed across active doctors
+    return activeQueueLength > 0 && doctorsActive > 0
+      ? Math.round((activeQueueLength * 10) / doctorsActive)
+      : 0
+  }
+
+  // Calculate actual average wait time
+  const totalWaitMs = tokensWithWaitTime.reduce((sum, token) => {
+    const waitMs = new Date(token.actualConsultationStartAt) - new Date(token.createdAt)
+    return sum + Math.max(0, waitMs)
+  }, 0)
+
+  const averageWaitMs = totalWaitMs / tokensWithWaitTime.length
+  return Math.round(averageWaitMs / (1000 * 60)) // Convert to minutes
+}
+
 async function buildOverview() {
   const today = todayRange()
 
-  const [activeQueueLength, checkedInToday, doctorsActive, urgentCases, completedConsultationsToday] =
+  const [activeQueueLength, checkedInToday, doctorsActive, urgentCases, completedConsultationsToday, averageWaitMinutes] =
     await Promise.all([
       QueueToken.countDocuments({
         queueStatus: { $in: ['waiting', 'assigned', 'called', 'in_consultation'] },
@@ -33,6 +74,7 @@ async function buildOverview() {
         isActive: true,
       }),
       Consultation.countDocuments({ status: 'completed', completedAt: today }),
+      calculateAverageWaitMinutes(),
     ])
 
   return {
@@ -41,9 +83,7 @@ async function buildOverview() {
     doctorsActive,
     urgentCases,
     completedConsultations: completedConsultationsToday,
-    averageWaitMinutes: activeQueueLength
-      ? Math.max(8, Math.round((activeQueueLength * 12) / Math.max(doctorsActive, 1)))
-      : 0,
+    averageWaitMinutes,
   }
 }
 

@@ -7,6 +7,7 @@ const consultationSchema = new mongoose.Schema(
     doctorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Doctor', required: true },
     appointmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Appointment', default: null },
     queueTokenId: { type: mongoose.Schema.Types.ObjectId, ref: 'QueueToken', required: true },
+    checkinId: { type: mongoose.Schema.Types.ObjectId, ref: 'Checkin', default: null },
     departmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Department', required: true },
     status: { type: String, enum: ['in_consultation', 'completed', 'cancelled', 'transferred'], default: 'in_consultation' },
     startedAt: { type: Date, default: Date.now },
@@ -21,5 +22,6 @@ const consultationSchema = new mongoose.Schema(
 consultationSchema.index({ doctorId: 1, status: 1 })
 consultationSchema.index({ patientId: 1, createdAt: -1 })
 consultationSchema.index({ queueTokenId: 1 })
+consultationSchema.index({ checkinId: 1 })
 
 export const Consultation = mongoose.model('Consultation', consultationSchema)

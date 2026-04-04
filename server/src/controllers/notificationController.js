@@ -110,14 +110,16 @@ export const getNotificationStats = asyncHandler(async (req, res) => {
   const tomorrow = new Date(today)
   tomorrow.setDate(tomorrow.getDate() + 1)
 
-  const [total, sent, failed, pending] = await Promise.all([
+  // BIZ-8: Properly count 'delivered' status instead of calculating it incorrectly
+  const [total, sent, failed, pending, delivered] = await Promise.all([
     Notification.countDocuments({ createdAt: { $gte: today, $lt: tomorrow } }),
     Notification.countDocuments({ status: 'sent', createdAt: { $gte: today, $lt: tomorrow } }),
     Notification.countDocuments({ status: 'failed', createdAt: { $gte: today, $lt: tomorrow } }),
     Notification.countDocuments({ status: 'pending', createdAt: { $gte: today, $lt: tomorrow } }),
+    Notification.countDocuments({ status: 'delivered', createdAt: { $gte: today, $lt: tomorrow } }),
   ])
 
   return sendSuccess(res, 'Notification stats fetched successfully', {
-    stats: { total, sent, failed, pending, delivered: total - sent - failed - pending },
+    stats: { total, sent, failed, pending, delivered },
   })
 })

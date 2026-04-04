@@ -26,6 +26,12 @@ export default function DashboardPage() {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  // Purge state
+  const [showPurgeConfirm, setShowPurgeConfirm] = useState(false)
+  const [purgeConfirmText, setPurgeConfirmText] = useState('')
+  const [isPurging, setIsPurging] = useState(false)
+  const [purgeResult, setPurgeResult] = useState(null)
+
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -50,6 +56,22 @@ export default function DashboardPage() {
       .catch((err) => toast.error(err.message))
       .finally(() => setLoading(false))
   }, [user])
+
+  const handlePurge = async () => {
+    if (purgeConfirmText !== 'PURGE') return
+    setIsPurging(true)
+    try {
+      const res = await apiFetch('/maintenance/purge', { method: 'DELETE' })
+      setPurgeResult(res.data?.purged || res.purged || null)
+      toast.success('All transactional data purged successfully!')
+      setShowPurgeConfirm(false)
+      setPurgeConfirmText('')
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setIsPurging(false)
+    }
+  }
 
   const metrics = [
     { label: 'Checked in today', value: overview?.checkedInToday ?? '--', color: 'bg-teal/10 text-teal', ring: 'ring-teal/20' },
@@ -88,6 +110,7 @@ export default function DashboardPage() {
 
 
       {user?.role === 'admin' ? (
+        <>
         <SectionCard title="Add New Staff" eyebrow="System Administration">
           <form 
             className="space-y-4 max-w-2xl rounded-2xl bg-white/70 p-5 ring-1 ring-ink/10"
@@ -206,6 +229,78 @@ export default function DashboardPage() {
             </div>
           </form>
         </SectionCard>
+
+        {/* Database Maintenance */}
+        <SectionCard title="Database Maintenance" eyebrow="System Administration">
+          <div className="max-w-2xl rounded-2xl bg-white/70 p-5 ring-1 ring-ink/10 space-y-4">
+            <div>
+              <h3 className="text-sm font-semibold text-ink">Purge Transactional Data</h3>
+              <p className="mt-1 text-xs text-ink/60">
+                This will permanently delete all appointments, queue tokens, check-ins, consultations, 
+                prescriptions, doctor assignments, notifications, and audit logs. 
+                Users, doctors, patients, departments, and system configurations will be preserved.
+              </p>
+            </div>
+
+            {purgeResult && (
+              <div className="rounded-xl bg-moss/5 p-4 ring-1 ring-moss/20">
+                <p className="text-xs font-semibold text-moss mb-2">✓ Last purge results:</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {Object.entries(purgeResult).map(([col, count]) => (
+                    <div key={col} className="text-xs text-ink/70">
+                      <span className="font-medium">{col}:</span> {count} deleted
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!showPurgeConfirm ? (
+              <button
+                id="purge-data-btn"
+                onClick={() => setShowPurgeConfirm(true)}
+                className="rounded-xl bg-coral/10 px-5 py-2.5 text-sm font-semibold text-coral ring-1 ring-coral/20 hover:bg-coral/20 transition-colors"
+              >
+                🗑️ Purge All Data
+              </button>
+            ) : (
+              <div className="rounded-xl bg-coral/5 p-4 ring-1 ring-coral/20 space-y-3">
+                <p className="text-sm font-semibold text-coral">
+                  ⚠️ This action cannot be undone!
+                </p>
+                <p className="text-xs text-ink/60">
+                  Type <span className="font-mono font-bold text-coral">PURGE</span> below to confirm:
+                </p>
+                <input
+                  id="purge-confirm-input"
+                  type="text"
+                  value={purgeConfirmText}
+                  onChange={(e) => setPurgeConfirmText(e.target.value.toUpperCase())}
+                  placeholder="Type PURGE to confirm"
+                  className="block w-full max-w-xs rounded-xl border-0 p-3 text-sm ring-1 ring-inset ring-coral/20 bg-white font-mono"
+                />
+                <div className="flex gap-3">
+                  <button
+                    id="purge-confirm-btn"
+                    onClick={handlePurge}
+                    disabled={purgeConfirmText !== 'PURGE' || isPurging}
+                    className="rounded-xl bg-coral px-5 py-2.5 text-sm font-semibold text-white hover:bg-coral/90 disabled:opacity-40 transition-colors"
+                  >
+                    {isPurging ? 'Purging...' : 'Confirm Purge'}
+                  </button>
+                  <button
+                    id="purge-cancel-btn"
+                    onClick={() => { setShowPurgeConfirm(false); setPurgeConfirmText('') }}
+                    className="rounded-xl bg-ink/5 px-5 py-2.5 text-sm font-semibold text-ink/70 hover:bg-ink/10 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </SectionCard>
+        </>
       ) : (
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Recent appointments */}
@@ -261,3 +356,4 @@ export default function DashboardPage() {
     </div>
   )
 }
+

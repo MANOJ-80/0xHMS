@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import SectionCard from '../components/SectionCard'
 import StatusBadge from '../components/StatusBadge'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -66,6 +67,7 @@ const REASON_OPTIONS = ['Fever', 'Pain', 'Infection', 'Cough', 'Cold', 'Nausea/V
 
 export default function DoctorDashboardPage() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [assignedPatients, setAssignedPatients] = useState([])
   const [loading, setLoading] = useState(true)
   const [activeConsultation, setActiveConsultation] = useState(null)
@@ -369,7 +371,7 @@ export default function DoctorDashboardPage() {
                     {new Date(apt.slotStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </div>
                   <div className="min-w-0">
-                    <h4 className="truncate text-sm font-semibold">{apt.patientId?.fullName || 'Unknown'}</h4>
+                    <h4 className="truncate text-sm font-semibold text-teal cursor-pointer hover:underline" onClick={() => navigate(`/patients/${apt.patientId?._id}`)}>{apt.patientId?.fullName || 'Unknown'}</h4>
                     <p className="text-xs text-ink/50">{apt.patientId?.patientCode}</p>
                   </div>
                 </div>
@@ -402,7 +404,7 @@ export default function DoctorDashboardPage() {
                         {item.tokenNumber.split('-').pop()}
                       </div>
                       <div>
-                        <h4 className="text-sm font-semibold">{item.patientId?.fullName || 'Unknown'}</h4>
+                        <h4 className="text-sm font-semibold text-teal cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); navigate(`/patients/${item.patientId?._id}`) }}>{item.patientId?.fullName || 'Unknown'}</h4>
                         <p className="text-xs text-ink/50">
                           {item.patientId?.patientCode} {item.appointmentId?.slotStart ? `- ${new Date(item.appointmentId.slotStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
                         </p>

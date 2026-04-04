@@ -35,6 +35,7 @@ const prescriptionSchema = new mongoose.Schema(
 
 prescriptionSchema.index({ patientId: 1, createdAt: -1 })
 prescriptionSchema.index({ doctorId: 1, createdAt: -1 })
-prescriptionSchema.index({ consultationId: 1 })
+// RACE-5: Make consultationId unique to prevent duplicate prescriptions for the same consultation
+prescriptionSchema.index({ consultationId: 1 }, { unique: true })
 
 export const Prescription = mongoose.model('Prescription', prescriptionSchema)

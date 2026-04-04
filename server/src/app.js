@@ -16,6 +16,7 @@ import notificationRoutes from './routes/notificationRoutes.js'
 import patientRoutes from './routes/patientRoutes.js'
 import prescriptionRoutes from './routes/prescriptionRoutes.js'
 import queueRoutes from './routes/queueRoutes.js'
+import maintenanceRoutes from './routes/maintenanceRoutes.js'
 import reportRoutes from './routes/reportRoutes.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { notFound } from './middleware/notFound.js'
@@ -43,9 +44,15 @@ export function createApp() {
     }),
   )
   app.use(helmet())
-  app.use(morgan('dev'))
-  app.use(express.json())
-  app.use(express.urlencoded({ extended: true }))
+  // Use 'dev' logging only in development, 'combined' in production
+  if (env.nodeEnv === 'production') {
+    app.use(morgan('combined'))
+  } else {
+    app.use(morgan('dev'))
+  }
+  // Limit request body size to prevent memory exhaustion attacks (default: 1mb)
+  app.use(express.json({ limit: '1mb' }))
+  app.use(express.urlencoded({ extended: true, limit: '1mb' }))
   app.use(cookieParser())
 
   app.get('/', (req, res) => {
@@ -69,6 +76,7 @@ export function createApp() {
   app.use('/api/v1/reports', reportRoutes)
   app.use('/api/v1/system-configs', configRoutes)
   app.use('/api/v1/audit-logs', auditRoutes)
+  app.use('/api/v1/maintenance', maintenanceRoutes)
 
   app.use(notFound)
   app.use(errorHandler)

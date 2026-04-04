@@ -21,4 +21,23 @@ const checkinSchema = new mongoose.Schema(
 checkinSchema.index({ patientId: 1, createdAt: -1 })
 checkinSchema.index({ departmentId: 1, status: 1 })
 
+// RACE-3: Partial unique index to prevent duplicate active check-ins for the same patient
+// This ensures that only one 'checked_in' status can exist per patient at a time
+checkinSchema.index(
+  { patientId: 1, status: 1 },
+  { 
+    unique: true,
+    partialFilterExpression: { status: 'checked_in' }
+  }
+)
+// Separate partial index for 'queued' status
+checkinSchema.index(
+  { patientId: 1, status: 1 },
+  { 
+    unique: true,
+    partialFilterExpression: { status: 'queued' },
+    name: 'patientId_status_queued_unique'
+  }
+)
+
 export const Checkin = mongoose.model('Checkin', checkinSchema)

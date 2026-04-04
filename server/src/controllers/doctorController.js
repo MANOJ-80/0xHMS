@@ -92,6 +92,14 @@ export const updateAvailability = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'availabilityStatus is required')
   }
 
+  // Doctors can only update their own availability
+  if (req.user?.role === 'doctor') {
+    const requestingDoctor = await Doctor.findOne({ userId: req.user.sub })
+    if (!requestingDoctor || requestingDoctor._id.toString() !== req.params.id) {
+      throw new ApiError(403, 'You can only update your own availability status')
+    }
+  }
+
   const validStatuses = ['available', 'busy', 'on_break', 'offline', 'overrun']
   if (!validStatuses.includes(availabilityStatus)) {
     throw new ApiError(400, `availabilityStatus must be one of: ${validStatuses.join(', ')}`)

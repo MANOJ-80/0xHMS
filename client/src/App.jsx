@@ -11,6 +11,7 @@ import DoctorDashboardPage from './pages/DoctorDashboardPage'
 import PatientDashboardPage from './pages/PatientDashboardPage'
 import NotificationsPage from './pages/NotificationsPage'
 import PrescriptionsPage from './pages/PrescriptionsPage'
+import PatientHistoryPage from './pages/PatientHistoryPage'
 import ProfilePage from './pages/ProfilePage'
 import RoleGuard from './components/RoleGuard'
 import { useAuth } from './components/AuthProvider'
@@ -97,6 +98,7 @@ function getNavItems(role) {
   if (role === 'doctor') {
     return [
       { to: '/doctor-dashboard', label: 'Dashboard', icon: icons.dashboard },
+      { to: '/patients', label: 'Patients', icon: icons.patients },
       { to: '/prescriptions', label: 'Prescriptions', icon: icons.prescriptions },
       { to: '/notifications', label: 'Notifications', icon: icons.notifications },
       { to: '/profile', label: 'Profile', icon: icons.profile },
@@ -252,10 +254,9 @@ export default function App() {
                 <Route path="/" element={<RoleGuard roles={['admin', 'receptionist']}><DashboardPage /></RoleGuard>} />
                 <Route path="/checkin" element={<RoleGuard roles={['admin', 'receptionist']}><CheckinPage /></RoleGuard>} />
                 <Route path="/appointments" element={<RoleGuard roles={['admin', 'receptionist']}><AppointmentsPage /></RoleGuard>} />
-                <Route path="/patients" element={<RoleGuard roles={['admin', 'receptionist']}><PatientsPage /></RoleGuard>} />
+                <Route path="/patients" element={<RoleGuard roles={['admin', 'receptionist', 'doctor']}><PatientsPage /></RoleGuard>} />
+                <Route path="/patients/:id" element={<RoleGuard roles={['admin', 'receptionist', 'doctor']}><PatientHistoryPage /></RoleGuard>} />
                 <Route path="/doctors" element={<RoleGuard roles={['admin', 'receptionist']}><DoctorsPage /></RoleGuard>} />
-
-                {/* Doctor */}
                 <Route path="/doctor-dashboard" element={<RoleGuard roles={['doctor', 'admin']}><DoctorDashboardPage /></RoleGuard>} />
 
                 {/* Patient */}

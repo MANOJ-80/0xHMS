@@ -72,20 +72,38 @@ export const startConsultation = asyncHandler(async (req, res) => {
     }
   }
 
+  // RACE-4: Use atomic findOneAndUpdate to prevent double consultation start
+  // Only update if status is NOT already 'in_consultation', 'completed', or 'missed'
+  const updatedQueueToken = await QueueToken.findOneAndUpdate(
+    {
+      _id: queueTokenId,
+      queueStatus: { $nin: ['in_consultation', 'completed', 'missed'] }
+    },
+    {
+      $set: {
+        queueStatus: 'in_consultation',
+        actualConsultationStartAt: new Date()
+      }
+    },
+    { new: true }
+  )
+
+  if (!updatedQueueToken) {
+    // Another request already started the consultation
+    throw new ApiError(409, 'Consultation has already been started by another request')
+  }
+
   const consultation = await Consultation.create({
     consultationNumber: generateCode('CON'),
-    patientId: queueToken.patientId,
-    doctorId: queueToken.assignedDoctorId,
-    appointmentId: queueToken.appointmentId,
-    queueTokenId: queueToken._id,
-    departmentId: queueToken.departmentId,
+    patientId: updatedQueueToken.patientId,
+    doctorId: updatedQueueToken.assignedDoctorId,
+    appointmentId: updatedQueueToken.appointmentId,
+    queueTokenId: updatedQueueToken._id,
+    checkinId: updatedQueueToken.checkinId,
+    departmentId: updatedQueueToken.departmentId,
   })
 
-  queueToken.queueStatus = 'in_consultation'
-  queueToken.actualConsultationStartAt = new Date()
-  await queueToken.save()
-
-  await Doctor.findByIdAndUpdate(queueToken.assignedDoctorId, {
+  await Doctor.findByIdAndUpdate(updatedQueueToken.assignedDoctorId, {
     availabilityStatus: 'busy',
   })
 
@@ -96,13 +114,13 @@ export const startConsultation = asyncHandler(async (req, res) => {
     action: 'consultation.started',
     entityType: 'Consultation',
     entityId: consultation._id,
-    metadata: { queueTokenId: queueToken._id },
+    metadata: { queueTokenId: updatedQueueToken._id },
   })
 
   emitQueueUpdate(req, {
-    departmentId: queueToken.departmentId,
-    doctorId: queueToken.assignedDoctorId,
-    patientId: queueToken.patientId,
+    departmentId: updatedQueueToken.departmentId,
+    doctorId: updatedQueueToken.assignedDoctorId,
+    patientId: updatedQueueToken.patientId,
   })
 
   return sendSuccess(res, 'Consultation started successfully', { consultation }, 201)

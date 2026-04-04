@@ -36,5 +36,9 @@ const appointmentSchema = new mongoose.Schema(
 appointmentSchema.index({ patientId: 1, status: 1 })
 appointmentSchema.index({ doctorId: 1, appointmentDate: 1, status: 1 })
 appointmentSchema.index({ departmentId: 1, appointmentDate: 1 })
+// Index for double-booking checks and available slots queries
+appointmentSchema.index({ doctorId: 1, status: 1, slotStart: 1, slotEnd: 1 })
+// Index for patient overlap checks
+appointmentSchema.index({ patientId: 1, status: 1, slotStart: 1, slotEnd: 1 })
 
 export const Appointment = mongoose.model('Appointment', appointmentSchema)
