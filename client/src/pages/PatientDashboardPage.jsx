@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import SectionCard from '../components/SectionCard'
 import StatusBadge from '../components/StatusBadge'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -10,6 +11,7 @@ import toast from 'react-hot-toast'
 
 export default function PatientDashboardPage() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [appointments, setAppointments] = useState([])
   const [departments, setDepartments] = useState([])
   const [doctors, setDoctors] = useState([])
@@ -142,9 +144,17 @@ export default function PatientDashboardPage() {
       />
 
       <div className="space-y-6">
-        <h1 className="font-display text-2xl font-semibold">
-          Welcome{user?.fullName ? `, ${user.fullName.split(' ')[0]}` : ''}
-        </h1>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <h1 className="font-display text-2xl font-semibold">
+            Welcome{user?.fullName ? `, ${user.fullName.split(' ')[0]}` : ''}
+          </h1>
+          <button
+            onClick={() => navigate(`/patients/${patientId}`)}
+            className="rounded-full bg-teal/10 px-4 py-1.5 text-xs font-medium text-teal hover:bg-teal/20 transition"
+          >
+            View My Full History
+          </button>
+        </div>
 
         {/* Active visit status (checked-in appointments) */}
         {checkedInApts.length > 0 && (

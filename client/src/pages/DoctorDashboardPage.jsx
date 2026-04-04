@@ -336,7 +336,13 @@ export default function DoctorDashboardPage() {
           <h1 className="font-display text-xl font-semibold">My Patients</h1>
           <p className="text-sm text-ink/60">Patients assigned to you by the front desk</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate(`/doctors/${doctorId}`)}
+            className="rounded-full bg-teal/10 px-4 py-1.5 text-xs font-medium text-teal hover:bg-teal/20 transition"
+          >
+            My History
+          </button>
           <span className="text-xs font-medium text-ink/50 mr-1">Status:</span>
           {AVAILABILITY_OPTIONS.map((opt) => (
             <button

@@ -12,6 +12,7 @@ import PatientDashboardPage from './pages/PatientDashboardPage'
 import NotificationsPage from './pages/NotificationsPage'
 import PrescriptionsPage from './pages/PrescriptionsPage'
 import PatientHistoryPage from './pages/PatientHistoryPage'
+import DoctorHistoryPage from './pages/DoctorHistoryPage'
 import ProfilePage from './pages/ProfilePage'
 import RoleGuard from './components/RoleGuard'
 import { useAuth } from './components/AuthProvider'
@@ -255,8 +256,9 @@ export default function App() {
                 <Route path="/checkin" element={<RoleGuard roles={['admin', 'receptionist']}><CheckinPage /></RoleGuard>} />
                 <Route path="/appointments" element={<RoleGuard roles={['admin', 'receptionist']}><AppointmentsPage /></RoleGuard>} />
                 <Route path="/patients" element={<RoleGuard roles={['admin', 'receptionist', 'doctor']}><PatientsPage /></RoleGuard>} />
-                <Route path="/patients/:id" element={<RoleGuard roles={['admin', 'receptionist', 'doctor']}><PatientHistoryPage /></RoleGuard>} />
+                <Route path="/patients/:id" element={<RoleGuard roles={['admin', 'receptionist', 'doctor', 'patient']}><PatientHistoryPage /></RoleGuard>} />
                 <Route path="/doctors" element={<RoleGuard roles={['admin', 'receptionist']}><DoctorsPage /></RoleGuard>} />
+                <Route path="/doctors/:id" element={<RoleGuard roles={['admin', 'receptionist', 'doctor']}><DoctorHistoryPage /></RoleGuard>} />
                 <Route path="/doctor-dashboard" element={<RoleGuard roles={['doctor', 'admin']}><DoctorDashboardPage /></RoleGuard>} />
 
                 {/* Patient */}

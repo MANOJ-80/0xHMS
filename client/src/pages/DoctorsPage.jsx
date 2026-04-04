@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import SectionCard from '../components/SectionCard'
 import StatusBadge from '../components/StatusBadge'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -6,6 +7,7 @@ import { apiFetch } from '../lib/api'
 import toast from 'react-hot-toast'
 
 export default function DoctorsPage() {
+  const navigate = useNavigate()
   const [doctors, setDoctors] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
@@ -58,7 +60,11 @@ export default function DoctorsPage() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((doctor) => (
-              <div key={doctor._id} className="rounded-2xl bg-white/70 p-5 ring-1 ring-ink/10 transition hover:shadow-sm">
+              <div
+                key={doctor._id}
+                onClick={() => navigate(`/doctors/${doctor._id}`)}
+                className="rounded-2xl bg-white/70 p-5 ring-1 ring-ink/10 transition hover:shadow-sm hover:ring-teal/30 cursor-pointer"
+              >
                 <div className="flex items-start justify-between">
                   <div>
                     <h3 className="text-sm font-semibold">Dr. {doctor.fullName}</h3>

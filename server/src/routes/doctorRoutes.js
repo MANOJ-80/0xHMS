@@ -9,6 +9,7 @@ import {
   updateAvailability,
   updateDoctor,
 } from '../controllers/doctorController.js'
+import { getDoctorHistory } from '../controllers/doctorHistoryController.js'
 import { requireAuth, requireRole } from '../middleware/auth.js'
 
 const router = Router()
@@ -17,6 +18,7 @@ const router = Router()
 router.use(requireAuth)
 router.get('/', listDoctors)
 router.get('/:id/slots', getDoctorSlots)
+router.get('/:id/history', requireRole('admin', 'receptionist', 'doctor'), getDoctorHistory)
 router.get('/:id', requireRole('admin', 'receptionist', 'doctor'), getDoctor)
 router.get('/:id/queue', requireRole('admin', 'receptionist', 'doctor'), getDoctorQueue)
 router.get('/:id/appointments', requireRole('admin', 'receptionist', 'doctor'), getDoctorAppointments)
